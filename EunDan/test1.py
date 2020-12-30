@@ -1,3 +1,4 @@
 import os
-line = "15125125"
-os.mkdir("./eunDan/img" + line)
+
+p = os.path.isdir('./img')
+print(p)

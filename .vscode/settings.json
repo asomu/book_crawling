@@ -1,10 +1,10 @@
 {
-    "python.pythonPath": "C:\\Users\\asomu\\anaconda3\\python.exe",
+    "python.pythonPath": "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\Python37_64\\python.exe",
     "editor.fontFamily": "Jetbrains Mono",
     "python.testing.unittestArgs": [
         "-v",
         "-s",
-        ".",
+        "./EunDan",
         "-p",
         "*_test.py"
     ],
