@@ -17,10 +17,6 @@ else:
             line = line.strip()
             url = 'http://www.kyobobook.co.kr/product/detailViewKor.laf?ejkGb=KOR&mallGb=KOR&barcode=' + line
             html = urlopen(url)
-            try:
-                os.mkdir("./img/" + line)
-            except:
-                print("Make Directory Skip")
             soup = bs(html, "html.parser")
             my_titles = soup.find_all('img')
             for title in my_titles:
@@ -31,7 +27,7 @@ else:
                     print(xlarge_src)
                     try:
                         with urlopen(xlarge_src) as f:
-                            with open('./img/'+ line + '/' + 'main_' + line + '.jpg', 'wb') as h:
+                            with open('./img/' + 'x' + line + '.jpg', 'wb') as h:
                                 img = f.read()
                                 h.write(img)      
                     except:
@@ -39,6 +35,6 @@ else:
                 if(src.find('i' + line) > 0):
                     print(src)
                     with urlopen(src) as f:
-                        with open('./img/'+ line + '/' + line + '.jpg', 'wb') as h:
+                        with open('./img/' + 'i' + line + '.jpg', 'wb') as h:
                             img = f.read()
                             h.write(img)
