@@ -23,15 +23,16 @@ else:
                 src = title.get('src')
                 idx = src.find('large/')
                 if(idx > 0):
-                    xlarge_src = src[:idx] + 'xlarge' + src[idx+5:idx+10] + 'x' + src[idx+11:]
-                    print(xlarge_src)
-                    try:
-                        with urlopen(xlarge_src) as f:
-                            with open('./img/' + 'x' + line + '.jpg', 'wb') as h:
-                                img = f.read()
-                                h.write(img)      
-                    except:
-                        print("SKIP")
+                    if(src[idx+11:idx+24] == line):
+                        xlarge_src = src[:idx] + 'xlarge' + src[idx+5:idx+10] + 'x' + src[idx+11:]
+                        print(xlarge_src)
+                        try:
+                            with urlopen(xlarge_src) as f:
+                                with open('./img/' + 'x' + line + '.jpg', 'wb') as h:
+                                    img = f.read()
+                                    h.write(img)      
+                        except:
+                            print("SKIP")
                 if(src.find('i' + line) > 0):
                     print(src)
                     with urlopen(src) as f:
