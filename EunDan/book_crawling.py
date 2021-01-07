@@ -4,7 +4,6 @@ from urllib.request import urlopen
 from bs4 import BeautifulSoup as bs
 from urllib.parse import quote_plus
 import os
-import sys
 from openpyxl import Workbook
 
 write_wb = Workbook()
@@ -28,14 +27,22 @@ else:
             org_price = soup.select_one('#container > div:nth-child(4) > form > div.box_detail_order > div.box_detail_price > ul > li:nth-child(1) > span.org_price')
             publish_data = soup.select_one('#container > div:nth-child(4) > form > div.box_detail_point > div.author > span.date')
             page = soup.select_one('#container > div:nth-child(7) > div.content_left > div:nth-child(5) > table.table_simple2.table_opened.margin_top10')
+            if (page == None):
+                page = soup.select_one('#container > div:nth-child(7) > div.content_left > div:nth-child(3) > table.table_simple2.table_opened.margin_top10')
             size = soup.select_one('#container > div:nth-child(7) > div.content_left > div:nth-child(5) > table.table_simple2.table_opened.margin_top10 > tbody > tr:nth-child(3) > td')
             title = title.text[:len(title.text) - 7]
             org_price = org_price.text.strip()
-            publish_data = publish_data.text.strip()[:len(publish_data) - 4]
+#            publish_data = publish_data.text.strip()[:len(publish_data) - 4]
+            publish_data = publish_data.text.strip()
             result_line = title + "," + org_price + "," + publish_data
-            page = page.find_all('td')
-            tatal_page = page[1].text
-            size = page[2].text[:len(page[2].text) - 5]
+            try:
+                page = page.find_all('td')
+                tatal_page = page[1].text
+                size = page[2].text[:len(page[2].text) - 5]
+            except:
+                print("쪽수와 크기를 가져오지 못했습니다.")
+                page = "확인필요"
+                size = "확인필요"
             print(result_line)
             write_ws.append([title,org_price,publish_data,tatal_page,size,int(line)])
             my_titles = soup.find_all('img')
@@ -61,8 +68,8 @@ else:
                         with open('./img/' + 'i' + line + '.jpg', 'wb') as h:
                             img = f.read()
                             h.write(img)
-                            
-for row in write_ws['F2':'F100']:
+
+for row in write_ws['F2':'F500']:
     for cell in row:
         cell.number_format = '0'
 order = 1
