@@ -178,6 +178,10 @@ def author(soup):
     return
 
 def save_img(soup, line):
+    name = get_title(soup).replace('?', '').replace('!', '')
+    print(name)
+    if not os.path.isdir(f'./img/{name}/'):
+        os.mkdir(f'./img/{name}/')
     my_titles = soup.find_all('img')
     for title in my_titles:
         src = title.get('src')
@@ -188,7 +192,7 @@ def save_img(soup, line):
 #                print(xlarge_src)
                 try:
                     with urlopen(xlarge_src) as f:
-                        with open('./img/' + 'x' + line + '.jpg', 'wb') as h:
+                        with open(f'./img/{name}/x{line}.jpg', 'wb') as h:
                             img = f.read()
                             h.write(img)
                             print(f"Save x{line}.jpg...")
@@ -197,7 +201,7 @@ def save_img(soup, line):
         if(src.find('i' + line) > 0):
 #            print(src)
             with urlopen(src) as f:
-                with open('./img/' + 'i' + line + '.jpg', 'wb') as h:
+                with open(f'./img/{name}/i{line}.jpg', 'wb') as h:
                     img = f.read()
                     h.write(img)
                     print(f"Save i{line}.jpg...")
