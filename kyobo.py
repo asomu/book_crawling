@@ -178,7 +178,7 @@ def author(soup):
     return
 
 def save_img(soup, line):
-    name = get_title(soup).replace('?', '').replace('!', '')
+    name = get_title(soup).replace('?', '').replace('!', '').replace(':', '')
     print(name)
     if not os.path.isdir(f'./img/{name}/'):
         os.mkdir(f'./img/{name}/')
