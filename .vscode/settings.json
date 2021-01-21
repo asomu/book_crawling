@@ -1,5 +1,5 @@
 {
-    "python.pythonPath": "C:\\Users\\asomu\\anaconda3\\python.exe",
+    "python.pythonPath": "C:\\Anaconda3\\python.exe",
     "editor.fontFamily": "Jetbrains Mono",
     "python.testing.unittestArgs": [
         "-v",
