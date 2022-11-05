@@ -1,4 +1,8 @@
 {
-    "python.pythonPath": "C:\\Users\\asomu\\anaconda3\\python.exe",
-    "jupyter.jupyterServerType": "local"
+  "python.pythonPath": "C:\\Users\\asomu\\anaconda3\\python.exe",
+  "editor.fontFamily": "Jetbrains Mono",
+  "python.testing.unittestArgs": ["-v", "-s", "./EunDan", "-p", "*_test.py"],
+  "python.testing.pytestEnabled": false,
+  "python.testing.nosetestsEnabled": false,
+  "python.testing.unittestEnabled": true
 }
