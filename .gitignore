@@ -1,0 +1,9 @@
+/.venv
+/.vscode
+/dist
+/.idea
+/img
+/__pycache__
+*.xlsx
+/build
+*.zip

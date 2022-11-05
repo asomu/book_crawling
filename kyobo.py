@@ -38,7 +38,7 @@ def save_excel(book_info):
             break
         else:
             order += 1
-    worksheet.write_row(0, 0, ["ISBN", "제목", "카테고리", "설명","저자", "옮긴이", "추가정보", "출판사", "정가","판매가","출간일","쪽수","크기","키워드"])
+    worksheet.write_row(0, 0, ["ISBN", "제목", "카테고리", "설명","저자", "출판사", "정가","판매가","출간일","쪽수","크기"])
     cell_format = workbook.add_format({'num_format': '0'})
     worksheet.set_column('A:A',15, cell_format)
     worksheet.set_column('B:B',30)
@@ -63,58 +63,27 @@ def save_excel(book_info):
     workbook.close()
 
 def get_category(soup):
-    category = soup.find_all('p', {'class':'location'})
-    if category is None:
+    category = soup.find('li', {'class':'category_list_item'})
+    if not category:
         category = "없습니다."
     else:
-        category = category[len(category)-1].find('a').text
+        category = category.select_one('a:last-of-type').text
     return category
 
-def get_keyword(soup):
-    keywords = soup.find('meta',{'name':'keywords'})
-    if keywords is None:
-        keywords = "키워드가 없습니다."
-    else:
-        keywords = keywords['content']
-    return keywords
-
 def get_author(soup):
-    author = soup.find('a', {"class":"detail_author"})
-    return author.text
+    author = soup.find('meta',{'name':'title'})['content']
+    author = author.split("|")[1].split('-')[0]
+    return author
     
 def get_publisher(soup):
     try:
-        publisher = soup.find('input', {"name":"pubNm"})
+        publisher = soup.select_one(".btn_publish_link")
     except:
         publisher = "알수없음"
-    return publisher['value']
-
-def get_translator(soup):
-    try:
-        translator = soup.find('a', {"class":"detail_translator"})
-        if translator is None:
-            translator = "없음"
-        else:
-            translator = translator.text
-    except:
-        translator = "없음"
-    return translator
-
-def get_painter(soup):
-    detail = ""
-    painter = soup.find_all("span", {"class":"name"})
-    try:
-        for p in painter:
-            name  = p.find("a")
-            if name is not None:
-                detail = detail + name.text + " "
-    except:
-        detail = ""
-    return detail
-
+    return publisher.text
 
 def get_back(soup):
-    back = soup.find('span',{"class":"back"})
+    back = soup.find('meta',{'name':'description'})
     if back is None:
         back = "없음"
     else:
@@ -130,81 +99,58 @@ def save_info(book_info, soup, line):
     date = get_publish_date(soup)
     shape = get_shape(soup)
     author = get_author(soup)
-    translator = get_translator(soup)
-    painter = get_painter(soup)
     publisher = get_publisher(soup)
-    keywords = get_keyword(soup)
-    info = [int(line), title, category, back, author, translator, painter, publisher, price[0], price[1], date, shape[0], shape[1], keywords]
+    info = [int(line), title, category, back, author, publisher, price[0], price[1], date, shape[0], shape[1]]
     book_info.append(info)
     return book_info
 
 def get_title(soup):
-    title = soup.select_one('head > title')
-    title = title.text[:len(title.text) - 7]
+    title = soup.find("meta", property="og:title")['content']
+    title = title.split("|")[0]
     return title
 
 def get_price(soup):
     try:
-        org_price = soup.find('meta',{'property':'eg:originalPrice'})
-        org_price = org_price['content']
-        sell_price = soup.find('meta',{'property':'eg:salePrice'})
-        sell_price = sell_price['content']
-        price = [int(org_price), int(sell_price)]
+        sell_price = soup.select_one("#contents > div.prod_detail_header > div > div.prod_detail_view_wrap > div.prod_detail_view_area > div:nth-child(3) > div.prod_price_wrap > div.prod_price_box > div > span.price > span")
+        org_price = soup.select_one("#contents > div.prod_detail_header > div > div.prod_detail_view_wrap > div.prod_detail_view_area > div:nth-child(3) > div.prod_price_wrap > div.prod_price_box > div > span.sale_price > s")
+        org_price = org_price.text[:-1]
+        sell_price = sell_price.text[:-1]
+        price = [org_price, sell_price]
     except:
         price = ["알수없음", "알수없음"]
     return price
 
 def get_publish_date(soup):
-    publish_date = soup.select_one('#container > div:nth-child(4) > form > div.box_detail_point > div.author > span.date')
-    return publish_date.text.strip()
+    publish_tag = soup.select_one(".publish_date")
+    publish_date = publish_tag.get_text().split('·')[1].strip()    
+    return publish_date
 
 def get_shape(soup):
-    page = soup.select_one('#container > div:nth-child(7) > div.content_left > div:nth-child(5) > table.table_simple2.table_opened.margin_top10')
-    size = soup.select_one('#container > div:nth-child(7) > div.content_left > div:nth-child(5) > table.table_simple2.table_opened.margin_top10 > tbody > tr:nth-child(3) > td')
-    if (page == None):
-        page = soup.select_one('#container > div:nth-child(7) > div.content_left > div:nth-child(3) > table.table_simple2.table_opened.margin_top10')
+    page = soup.select_one("#scrollSpyProdInfo > div.product_detail_area.basic_info > div.tbl_row_wrap > table > tbody > tr:nth-child(2) > td")
+    size = soup.select_one('#scrollSpyProdInfo > div.product_detail_area.basic_info > div.tbl_row_wrap > table > tbody > tr:nth-child(3) > td > div > span')
     try:
-        page = page.find_all('td')
-        total_page = page[1].text.strip()
-        size = page[2].text[:len(page[2].text) - 5]
+        page = page.get_text()        
+        size = size.get_text().strip().split('\n')[0]
     except:
         print("쪽수와 크기를 가져와지 못했습니다.")
         total_page = "확인필요"
         size = "확인필요"
-    page_size = [total_page, size]
+    page_size = [page, size]
     return page_size
 
-def author(soup):
-    return
-
 def save_img(soup, line):
-    name = get_title(soup).replace('?', '').replace('!', '').replace(':', '')
+    name = get_title(soup).replace('?', '').replace('!', '').replace(':', '').strip()
     print(name)
     if not os.path.isdir(f'./img/{name}/'):
         os.mkdir(f'./img/{name}/')
-    my_titles = soup.find_all('img')
+    my_titles = soup.find_all("div", {"class":"prod_thumb_swiper_wrap"})
     for title in my_titles:
-        src = title.get('src')
-        idx = src.find('large/')
-        if(idx > 0):
-            if(src[idx+11:idx+24] == line):
-                xlarge_src = src[:idx] + 'xlarge' + src[idx+5:idx+10] + 'x' + src[idx+11:]
-#                print(xlarge_src)
-                try:
-                    with urlopen(xlarge_src) as f:
-                        with open(f'./img/{name}/x{line}.jpg', 'wb') as h:
-                            img = f.read()
-                            h.write(img)
-                            print(f"Save x{line}.jpg...")
-                except:
-                    print(f"ISBN: {line} have not X large image...skip save image.")
-        if(src.find('i' + line) > 0):
-#            print(src)
-            with urlopen(src) as f:
-                with open(f'./img/{name}/i{line}.jpg', 'wb') as h:
-                    img = f.read()
-                    h.write(img)
-                    print(f"Save i{line}.jpg...")
+        src = title.find('img').get('src')                        
+        with urlopen(src) as f:
+            with open(f'./img/{name}/i{line}.jpg', 'wb') as h:
+                img = f.read()
+                h.write(img)
+                print(f"Save i{line}.jpg...")
 
 
 

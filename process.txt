@@ -33,3 +33,10 @@
 [1/21]
 버그 수정
 : 추가 특수문자 문제 수정.
+
+[22/11/05]
+교보문고 사이트 개편으로
+다시 정리함.
+
+pyinstaller Command
+pyinstaller main.py -F -i=book.ico --add-data="book.ico;."
