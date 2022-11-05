@@ -1,1 +1,61 @@
-print("test")
+#%%
+from urllib.request import urlopen
+from bs4 import BeautifulSoup as bs
+
+url = f"https://product.kyobobook.co.kr/detail/S000001835614"
+html = urlopen(url)
+soup = bs(html, "html.parser")
+
+# %%
+main_block =  soup.find_all("div", {"class":"prod_thumb_swiper_wrap"})
+# %%
+for block in main_block:
+    src = block.find('img').get('src')
+    print(src)
+# %%
+
+                
+with urlopen(src) as f:
+    with open(f'./img/test.jpg', 'wb') as h:
+        img = f.read()
+        h.write(img)
+        print(f"Save {img}.jpg...")
+# %%
+category = soup.find('li', {'class':'category_list_item'})
+# %%
+#arr = soup.select('ul.list_basis div>a:first-child[tit
+cat = category.select_one('a:last-of-type')
+cat.text
+# %%
+category = soup.find('li', {'class':'category_list_item'}).select_one('a:last-of-type').text
+category
+# %%
+pu = soup.select_one(".btn_publish_link")
+# %%
+pu.text
+# %%
+price = soup.select(".prod_price")
+p1 = price[0].text[:-1]
+p2 = price[1].text[:-1]
+p3 = price[2].text[:-1]
+    
+print(p1, p2, p3)
+# %%
+a = soup.select_one(".publish_date")
+print(a.get_text().split('·')[1].strip())
+# %%
+a= soup.select_one("#scrollSpyProdInfo > div.product_detail_area.basic_info > div.tbl_row_wrap > table > tbody > tr:nth-child(3) > td > div > span")
+# %%
+a.get_text().strip().split('\n')[0]
+# %%
+page = soup.select_one("#scrollSpyProdInfo > div.product_detail_area.basic_info > div.tbl_row_wrap > table > tbody > tr:nth-child(2) > td")
+page.get_text()
+# %%
+author = soup.find('meta',{'name':'title'})['content']
+author = author.split("|")[1].split('-')[0]
+print(author)
+# %%
+keywords = soup.select_one('#contents > div.prod_detail_header > div > div.prod_detail_view_wrap > div.prod_detail_view_area > div:nth-child(3) > div.prod_price_wrap > div.prod_price_box > div > span.price > span')
+# %%
+keywords.text[:-1]
+# %%

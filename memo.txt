@@ -8,3 +8,11 @@ http://image.kyobobook.co.kr/images/book/illustrate/261/i9791164136261.jpg
 #container > div:nth-child(7) > div.content_left > div:nth-child(5) > div:nth-child(12) > img
 #container > div:nth-child(7) > div.content_left > div:nth-child(5) > div:nth-child(12) > img
 
+
+
+1. 대표이미지 class
+prod_thumb_swiper_wrap active
+
+find_all('div', attrs={'class':'prod_thumb_swiper_wrap active'})
+
+http://www.kyobobook.co.kr/product/detailViewKor.laf?ejkGb=KOR&mallGb=KOR&barcode=9788959896837
