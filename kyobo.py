@@ -4,7 +4,9 @@ from bs4 import BeautifulSoup as bs
 from urllib.parse import quote_plus
 from datetime import date
 import xlsxwriter
+import ssl
 
+context = ssl._create_unverified_context()
 KYOBO_URL = 'http://www.kyobobook.co.kr/product/detailViewKor.laf?ejkGb=KOR&mallGb=KOR&barcode='
 
 def get_book_data(isbn_file):
@@ -22,10 +24,10 @@ def get_book_data(isbn_file):
                 continue    
             line = line.strip()
             url = KYOBO_URL + line
-            html = urlopen(url)
+            html = urlopen(url, context=context)
             soup = bs(html, "html.parser")
-            # get_category(soup)
-            save_img(soup, line)
+            save_img(soup)
+            save_detail_img(soup)
             save_info(book_info, soup, line)
     save_excel(book_info)
 
@@ -138,20 +140,32 @@ def get_shape(soup):
     page_size = [page, size]
     return page_size
 
-def save_img(soup, line):
+def save_img(soup):
     name = get_title(soup).replace('?', '').replace('!', '').replace(':', '').strip()
     print(name)
-    if not os.path.isdir(f'./img/{name}/'):
-        os.mkdir(f'./img/{name}/')
+    if not os.path.isdir(f'./img/'):
+        os.mkdir(f'./img/')
     my_titles = soup.find_all("div", {"class":"prod_thumb_swiper_wrap"})
     for title in my_titles:
         src = title.find('img').get('src')                        
-        with urlopen(src) as f:
-            with open(f'./img/{name}/i{line}.jpg', 'wb') as h:
+        with urlopen(src, context=context) as f:
+            with open(f'./img/{name}_표지.jpg', 'wb') as h:
                 img = f.read()
                 h.write(img)
-                print(f"Save i{line}.jpg...")
+                print(f"Save {name}_표지.jpg...")
 
+def save_detail_img(soup):
+    name = get_title(soup).replace('?', '').replace('!', '').replace(':', '').strip()
+    if not os.path.isdir(f'./img/'):
+        os.mkdir(f'./img/')
+    my_titles = soup.select_one("#scrollSpyProdInfo > div.product_detail_area.detail_img > div > img")
+    if my_titles is not None:
+        src = my_titles.get('src')                        
+        with urlopen(src, context=context) as f:
+            with open(f'./img/{name}_상세.jpg', 'wb') as h:
+                img = f.read()
+                h.write(img)
+                print(f"Save {name}_상세.jpg...")
 
 
 

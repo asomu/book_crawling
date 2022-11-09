@@ -7,3 +7,4 @@
 *.xlsx
 /build
 *.zip
+/.hoodak_env
