@@ -159,7 +159,9 @@ def save_detail_img(soup):
     if not os.path.isdir(f'./img/'):
         os.mkdir(f'./img/')
     my_titles = soup.select_one("#scrollSpyProdInfo > div.product_detail_area.detail_img > div > img")
-    if my_titles is not None:
+    if my_titles is None:
+        print(f"Fail {name} - Reason: 상세 페이지 없음...")
+    else:
         src = my_titles.get('src')                        
         with urlopen(src, context=context) as f:
             with open(f'./img/{name}_상세.jpg', 'wb') as h:
