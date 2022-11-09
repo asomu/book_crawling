@@ -3,7 +3,7 @@ This is class for book information.
 
 
 """    
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 #["ISBN", "제목", "카테고리", "설명","저자", "출판사", "정가","판매가","출간일","쪽수","크기"])
