@@ -18,6 +18,6 @@ class BookInfo:
     publisher: str = ""
     price_ori: str = ""
     price_rel: str = ""
-    date_publish: str = ""
+    publised_date: str = ""
     page: str = ""
     book_size: str = ""

@@ -141,6 +141,7 @@ def get_shape(soup):
     return page_size
 
 def save_img(soup):
+    print(type(soup))
     name = get_title(soup).replace('?', '').replace('!', '').replace(':', '').strip()
     print(name)
     if not os.path.isdir(f'./img/'):
