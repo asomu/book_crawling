@@ -1,3 +1,12 @@
+"""book_scraper class가 정의되어 있는 파일
+
+<Class>
+1. BookScraperFactory
+2. BookScraperBase
+3. BookScraperKyobo
+4. BookScraperYes24
+"""
+
 from bs4 import BeautifulSoup as bs
 from urllib.request import urlopen
 from abc import ABC, abstractmethod
@@ -8,6 +17,12 @@ import ssl
 context = ssl._create_unverified_context()
 
 class BookScraperFactory:
+    """book scraper class를 생성하여 반환한다.
+       
+       1. site value에 따라 반환 class가 달라진다.
+        'Kyobo' : BookScraperKyobo class 를 반환한다.
+        'Yes24' : BookScraperYes24 class 를 반환한다.
+    """
     def __init__(self, isbn: str, site: str):
         self._isbn = isbn
         self._site = site
@@ -123,6 +138,11 @@ class BookScraperBase(ABC):
         
         
 class BookScraperKyobo(BookScraperBase):
+    """교보문고 사이트를 스크래핑하기 위한 클래스
+
+    Args:
+        BookScraperBase (_type_): _description_
+    """
     def __init__(self, isbn):
         super().__init__(isbn)
         self._url: str = f'http://www.kyobobook.co.kr/product/detailViewKor.laf?ejkGb=KOR&mallGb=KOR&barcode={isbn}'        
@@ -220,6 +240,11 @@ class BookScraperKyobo(BookScraperBase):
         return size
 
 class BookScraperYes24(BookScraperBase):
+    """Yes24를 스크래핑하기 위한 클래스
+
+    Args:
+        BookScraperBase (_type_): _description_
+    """
     def __init__(self, isbn):
         super().__init__(isbn)
         self._url: str = f'http://www.yes24.com/Product/Search?domain=ALL&query={isbn}'        

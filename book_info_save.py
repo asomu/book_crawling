@@ -1,3 +1,9 @@
+"""book_info의 data를 excel로 저장하기 위한 클래스.
+
+    Returns:
+        _type_: _description_
+"""
+
 import xlsxwriter
 import os
 from datetime import date
@@ -5,6 +11,9 @@ from book_info import BookInfo
 from typing import List
 
 class BookInfoSaver:
+    """book_info list를 excel로 저장한다.
+    
+    """
     def __init__(self, book_info:List[BookInfo]) -> None:
         self._book_info = book_info
     
