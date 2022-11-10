@@ -16,6 +16,8 @@ import ssl
 
 context = ssl._create_unverified_context()
 
+
+
 class BookScraperFactory:
     """book scraper class를 생성하여 반환한다.
        
@@ -26,12 +28,16 @@ class BookScraperFactory:
     def __init__(self, isbn: str, site: str):
         self._isbn = isbn
         self._site = site
+        self._scraper = {"Kyobo": self.create_kyobo, "Yes24":self.create_yes24}
     
     def create(self):
-        if self._site == "Kyobo":
-            return BookScraperKyobo(self._isbn)
-        elif self._site == "Yes24":
-            return BookScraperYes24(self._isbn)
+        return self._scraper[self._site]()
+        
+    def create_kyobo(self):
+        return BookScraperKyobo(self._isbn)
+    
+    def create_yes24(self):
+        return BookScraperYes24(self._isbn)
         
         
 class BookScraperBase(ABC):
