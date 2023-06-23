@@ -6,17 +6,16 @@
 3. BookScraperKyobo
 4. BookScraperYes24
 """
-
+from selenium import webdriver
 from bs4 import BeautifulSoup as bs
 from urllib.request import urlopen
 from abc import ABC, abstractmethod
 from book_info import BookInfo
-import os
+import sys
 import ssl
+import os
 
 context = ssl._create_unverified_context()
-
-
 
 class BookScraperFactory:
     """book scraper class를 생성하여 반환한다.
@@ -61,7 +60,7 @@ class BookScraperBase(ABC):
             self.book_info.publisher = self._get_publisher()
             self.book_info.price_ori = self._get_price_ori()
             self.book_info.price_rel = self._get_price_rel()
-            self.book_info.publised_date = self._get_publised_date()
+            self.book_info.publised_date = self._get_published_date()
             self.book_info.page = self._get_page()
             self.book_info.book_size = self._get_book_size()        
         return self.book_info
@@ -95,6 +94,10 @@ class BookScraperBase(ABC):
         pass
 
     @abstractmethod
+    def connect_selenium(self) -> None:
+        pass
+
+    @abstractmethod
     def _get_cover_img_src(self) -> None:
         pass
     
@@ -131,7 +134,7 @@ class BookScraperBase(ABC):
         pass
     
     @abstractmethod
-    def _get_publised_date(self) -> None:
+    def _get_published_date(self) -> None:
         pass
     
     @abstractmethod
@@ -151,16 +154,31 @@ class BookScraperKyobo(BookScraperBase):
     """
     def __init__(self, isbn):
         super().__init__(isbn)
-        self._url: str = f'http://www.kyobobook.co.kr/product/detailViewKor.laf?ejkGb=KOR&mallGb=KOR&barcode={isbn}'        
-        self.connect_bs()
+        self._url: str = f'http://www.kyobobook.co.kr/product/detailViewKor.laf?ejkGb=KOR&mallGb=KOR&barcode={isbn}'
+        # self.connect_bs()
+        self.connect_selenium()
         self.get_info()
-        
-    def connect_bs(self) -> None:            
+
+    def connect_bs(self) -> None:
         html = urlopen(self._url, context=context)
         self.soup = bs(html, "html.parser")
 
+    def connect_selenium(self) -> None:
+        # if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        #     chromedriver_path = os.path.join(sys._MEIPASS, "chromedriver.exe")
+        #     print('running in a PyInstaller bundle')
+        #     driver = webdriver.Chrome(chromedriver_path)
+        # else:
+        #     driver = webdriver.Chrome()
+        #     print('running in a normal Python process')
+
+        driver = webdriver.Chrome()
+        driver.get(self._url)
+        html = driver.page_source
+        self.soup = bs(html, "html.parser")
+
     def _get_cover_img_src(self) -> None:
-        img_tags = self.soup.find_all("div", {"class":"prod_thumb_swiper_wrap"})
+        img_tags = self.soup.find_all("div", {"class": "prod_thumb_swiper_wrap"})
         for tag in img_tags:
             src = tag.find('img').get('src')                     
         return src
@@ -179,7 +197,7 @@ class BookScraperKyobo(BookScraperBase):
         return title
     
     def _get_category(self) -> None:
-        category = self.soup.find('li', {'class':'category_list_item'})
+        category = self.soup.find('li', {'class': 'category_list_item'})
         if not category:
             category = "없습니다."
         else:
@@ -187,15 +205,15 @@ class BookScraperKyobo(BookScraperBase):
         return category
     
     def _get_description(self) -> None:
-        disc = self.soup.find('meta',{'name':'description'})
+        disc = self.soup.find('meta', {'name': 'description'})
         if disc is None:
             disc = "없음"
         else:
-            disc = disc.text.strip()
+            disc = disc["content"]
         return disc
     
     def _get_author(self) -> None:
-        author = self.soup.find('meta',{'name':'title'})['content']
+        author = self.soup.find('meta', {'name': 'title'})['content']
         author = author.split("|")[1].split('-')[0]
         return author
     
@@ -222,13 +240,13 @@ class BookScraperKyobo(BookScraperBase):
             sell_price = "알수없음"
         return sell_price
     
-    def _get_publised_date(self) -> None:
+    def _get_published_date(self) -> None:
         publish_tag = self.soup.select_one(".publish_date")
         publish_date = publish_tag.get_text().split('·')[1].strip()    
         return publish_date
     
     def _get_page(self) -> None:
-        page = self.soup.select_one("#scrollSpyProdInfo > div.product_detail_area.basic_info > div.tbl_row_wrap > table > tbody > tr:nth-child(2) > td")
+        page = self.soup.select_one("#scrollSpyProdInfo > div.product_detail_area.basic_info > div.tbl_row_wrap > table > tbody > tr:nth-child(3) > td")
         try:
             page = page.get_text()        
         except:
@@ -237,13 +255,14 @@ class BookScraperKyobo(BookScraperBase):
         return page
     
     def _get_book_size(self) -> None:
-        size = self.soup.select_one('#scrollSpyProdInfo > div.product_detail_area.basic_info > div.tbl_row_wrap > table > tbody > tr:nth-child(3) > td > div > span')
+        size = self.soup.select_one('#scrollSpyProdInfo > div.product_detail_area.basic_info > div.tbl_row_wrap > table > tbody > tr:nth-child(4) > td > div > span')
         try:
             size = size.get_text().strip().split('\n')[0]
         except:
             print("크기를 가져오지 못했습니다.")
             size = "확인필요"
         return size
+
 
 class BookScraperYes24(BookScraperBase):
     """Yes24를 스크래핑하기 위한 클래스
@@ -261,6 +280,9 @@ class BookScraperYes24(BookScraperBase):
         url = self.get_item_url()
         html = urlopen(url, context=context)
         self.soup = bs(html, "html.parser")
+
+    def connect_selenium(self) -> None:
+        pass
 
     def get_item_url(self):
         html = urlopen(self._url, context=context)
@@ -347,7 +369,7 @@ class BookScraperYes24(BookScraperBase):
             sell_price = "알수없음"
         return sell_price
     
-    def _get_publised_date(self) -> None:
+    def _get_published_date(self) -> None:
         try:
             publish_date = self.soup.select_one("#yDetailTopWrap > div.topColRgt > div.gd_infoTop > span.gd_pubArea > span.gd_date").text
         except:

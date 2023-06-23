@@ -6,6 +6,8 @@
 from kyobo import get_book_data
 from book_scraper import BookScraperFactory
 from book_info_save import BookInfoSaver
+import sys
+
 
 isbn = "isbn.txt"
 
@@ -35,7 +37,7 @@ class book_manager:
             for isbn in isbns:
                 if isbn == "\n":
                     continue    
-                scrap_factory = BookScraperFactory(isbn, "Yes24");
+                scrap_factory = BookScraperFactory(isbn, "Kyobo");
                 scraper = scrap_factory.create()
                 scraper.save_cover_image()
                 scraper.save_detailed_image()
@@ -47,4 +49,3 @@ if __name__ == "__main__":
     bm = book_manager()
     bm.run()
 
-    
