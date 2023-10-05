@@ -2,10 +2,17 @@
 from urllib.request import urlopen
 from bs4 import BeautifulSoup as bs
 
-url = f"https://product.kyobobook.co.kr/detail/S000001835614"
+#%%
+isbn="9788936479190"
+url = f"https://product.kyobobook.co.kr/detail/S000000778486"
 html = urlopen(url)
 soup = bs(html, "html.parser")
-
+print(soup)
+#%%
+# tag =  soup.select_one("#Search3_Result > div > table > tbody > tr > td:nth-child(3) > table > tbody > tr:nth-child(1) > td:nth-child(2) > div > div.button_search_cart_new > a")
+tag =  soup.select_one("#yDetailTopWrap")
+tag2 = tag.find_all(".img")
+print(tag2)
 # %%
 main_block =  soup.find_all("div", {"class":"prod_thumb_swiper_wrap"})
 # %%
@@ -58,4 +65,15 @@ print(author)
 keywords = soup.select_one('#contents > div.prod_detail_header > div > div.prod_detail_view_wrap > div.prod_detail_view_area > div:nth-child(3) > div.prod_price_wrap > div.prod_price_box > div > span.price > span')
 # %%
 keywords.text[:-1]
+# %%
+test = "testsa : asetaset"
+print(test.replace(":", ""))
+# %%
+from PIL import Image
+src = r"C:\python_workspace\VsProject\BookCrawling\img\미친 장난감_상세.jpg"
+img = Image.open(src)
+print(img.size)
+#%%
+resized_img = img.resize((860, int(img.size[1]*860/img.size[0])), Image.LANCZOS)
+resized_img.save(src)
 # %%

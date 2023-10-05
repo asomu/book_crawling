@@ -41,9 +41,9 @@ class book_manager:
                 scraper = scrap_factory.create()
                 scraper.save_cover_image()
                 scraper.save_detailed_image()
-                book_info_data.append(scraper.get_info())
-            book_info_saver = BookInfoSaver(book_info_data)
-            book_info_saver.save_info()
+                # book_info_data.append(scraper.get_info())
+            # book_info_saver = BookInfoSaver(book_info_data)
+            # book_info_saver.save_info()
                         
 if __name__ == "__main__":
     bm = book_manager()

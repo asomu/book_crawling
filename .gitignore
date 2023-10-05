@@ -10,7 +10,10 @@
 /.hoodak_env
 /_build
 /_static
+output/
 conf.py
 index.rst
 make.bat
 Makefile
+*.exe
+isbn.txt
