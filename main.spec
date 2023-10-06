@@ -7,7 +7,7 @@ block_cipher = None
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=[],
+    binaries=[('chromedriver.exe', '.')],
     datas=[('book.ico', '.')],
     hiddenimports=[],
     hookspath=[],

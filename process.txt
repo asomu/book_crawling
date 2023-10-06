@@ -1,14 +1,20 @@
-[23/12/03]
+[23/10/05]
+크롬드라이버 매번 실행하는 방식에서 한번만 실행하고 isbn을 돌려가며 스크래핑하도록 수정함.
+TODO: 교보문고 클래스에서만 수정하여서 다른 클래스도 추가 수정이 필요함. 
+      어짜피 현재 bs4로는 스크래핑이 안되는 상태라 모두 셀레니움으로 수정 필요함.
+
+[23/10/03]
 1. excel info 필요가 없어 주석 처리
 2. 알라딘 추가로 가져오는 class 만듬 - 미완성(bs4로 모두 가져올 수 없어서 selenium으로 변경해야함.)
 3. 19금 자료는 커버페이지 없어서 종료되는 이슈 수정
 4. 상세 이미지 사이즈를 860xAuto로 수정
+5. 상세정보 엑셀파일로 저장하는 것이 필요없어 주석처리
 
 [23/06/24]
 교보문고가 동적페이지로 변경했는지 엉뚱한 페이지를 가져와서 셀레니움으로 수정함.
 그러면서 파싱이 안되던 페이지, 크기, 설명을 가져올 수 있도록 수정함.
 
-pyinstaller main.py -F -w --add-binary "chromedriver.exe";"." -i=book.ico --add-data="book.ico;."
+pyinstaller main.py -F --add-binary "chromedriver.exe";"." -i=book.ico --add-data="book.ico;."
 pyinstaller main.py -F -w --add-binary "C:\DRIVERS\chromedriver.exe";"." -i=book.ico --add-data="book.ico;."
 
 [22/11/09]
