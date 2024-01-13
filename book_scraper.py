@@ -7,13 +7,12 @@
 4. BookScraperYes24
 5. BookScraperAladin
 """
-from selenium import webdriver
+from book_info_save import Mode, Site
 from bs4 import BeautifulSoup as bs
 from urllib.request import urlopen
 from abc import ABC, abstractmethod
 from book_info import BookInfo
 from PIL import Image
-import sys
 import ssl
 import os
 import time
@@ -32,9 +31,9 @@ class BookScraperFactory:
 
     def __init__(self, site: str, driver):
         self._site = site
-        self._scraper = {"Kyobo": self.create_kyobo,
-                         "Yes24": self.create_yes24,
-                         "aladin": self.create_aladin}
+        self._scraper = {Site.Kyobo: self.create_kyobo,
+                         Site.Yes24: self.create_yes24,
+                         Site.Aladin: self.create_aladin}
         self._driver = driver
 
     def set_isbn(self, isbn: str):
@@ -80,14 +79,14 @@ class BookScraperBase(ABC):
             # self.book_info.book_size = self._get_book_size()
         return self.book_info
 
-    def save_cover_image(self) -> None:
+    def save_cover_image(self, state) -> None:
         try:
             self._make_img_folder()
             src = self._get_cover_img_src()
             if src == "":
                 print(f"Fail {self.book_info.title} - Reason: 커버 페이지 없음...")
             else:
-                self._save_src2file(src, "표지")
+                self._save_src2file(src, state)
         except Exception as e:
             print(f"페이지에 접속할 수 없습니다.")
 
@@ -102,6 +101,7 @@ class BookScraperBase(ABC):
         except Exception as e:
             print(f"페이지에 접속할 수 없습니다.")
 
+
     def _save_src2file(self, src, post_fix) -> None:
         file_name = f'./img/{self.book_info.title}_{post_fix}.jpg'
         with urlopen(src, context=context) as f:
@@ -110,13 +110,59 @@ class BookScraperBase(ABC):
                 h.write(img)
                 print(f"Save {self.book_info.title}_{post_fix}.jpg...")
         if post_fix == "상세":
-            self._resize_img(file_name)
+            final_img = self._save_x860_img(file_name)
+        elif post_fix == "y1000":
+            final_img = self._resize_y_img(file_name, 900)
+            final_img = self._add_border(final_img)
+            final_img, origin_img_start_pos = self._paste_on_white_backgound_image(final_img, 1000)
+        elif post_fix == "쿠팡":
+            final_img = self._resize_y_img(file_name, 810)
+            final_img = self._add_border(final_img)
+            final_img = self._paste_on_white_backgound_image(final_img, 1000, "쿠팡")
+        elif post_fix == "네이버":
+            final_img = self._resize_y_img(file_name, 810)
+            final_img = self._add_border(final_img)
+            final_img = self._paste_on_white_backgound_image(final_img, 1000, "네이버")
+        final_img.save(file_name)
 
-    def _resize_img(self, src):
+    def _save_x860_img(self, src):
         img = Image.open(src)
         resized_img = img.resize(
             (860, int(img.size[1]*860/img.size[0])), Image.LANCZOS)
-        resized_img.save(src)
+        return resized_img
+
+    def _resize_y_img(self, src, y_res):
+        img = Image.open(src)
+        resized_img = img.resize(
+            (int(img.size[0]*y_res/img.size[1]), y_res), Image.LANCZOS)
+        return resized_img
+
+    def _add_border(self, img):
+        bg_img = Image.new('RGBA', img.size, (125, 125, 125, 255))
+        target_image = img.resize((img.size[0]-2, img.size[1]-2))
+        bg_img.paste(target_image, (1, 1))
+        return bg_img
+
+    def _paste_on_white_backgound_image(self, img, bg_size, mode):
+        x, y = img.size
+        yres = int((bg_size-y)/2)
+        xres = int((bg_size-x)/2)
+        blank_image = Image.new("RGBA", (bg_size, bg_size), (255, 255, 255, 255))
+        blank_image.paste(img, (xres, yres))
+        if mode == "쿠팡":
+            icon_img = Image.open("./resource/쿠팡_아이콘.png")
+            icon_x, icon_y = icon_img.size
+            start_x = xres + x - int((icon_x/2))
+            start_y = yres + y - int((icon_y/2))
+            blank_image.paste(icon_img, (start_x, start_y))
+        elif mode == "네이버":
+            icon_img = Image.open("./resource/네이버_아이콘.png")
+            icon_x, icon_y = icon_img.size
+            start_x = xres + x - int((icon_x/2))
+            start_y = yres + y - int((icon_y/2))
+            blank_image.paste(icon_img, (start_x, start_y))
+        ret_image = blank_image.convert('RGB')
+        return ret_image
 
     def _make_img_folder(self) -> None:
         if not os.path.isdir(f'./img/'):

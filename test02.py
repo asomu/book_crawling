@@ -1,77 +1,38 @@
-from urllib.request import urlopen
-from bs4 import BeautifulSoup as bs
-import ssl
+from PIL import Image, ImageFilter, ImageOps
 
+def resize_and_center_image(image_path, output_path):
+    icon_path = r"C:\Users\asomu\OneDrive\사진\icons.png"
+    icon_image = Image.open(icon_path)
+    target_image = Image.open(image_path)
+    shadowed_image = Image.new('RGBA', target_image.size, (125, 125, 125, 255))
+    target_image = target_image.resize((target_image.size[0]-2, target_image.size[1]-2))
 
-def run():
-    context = ssl._create_unverified_context()
-    url = f"http://www.yes24.com/Product/Search?domain=ALL&query=9791168340541"
-    html = urlopen(url, context=context)
-    soup = bs(html, "html.parser")
-    tag =  soup.select_one("#yesSchList > li > div > div.item_img > div.img_canvas > span > span > a")
-    item_url = tag.get("href")
-    url = f"http://www.yes24.com{item_url}"
-    print(url)
+    shadowed_image.paste(target_image, (1, 1))
+    # 이미지에 그림자를 추가합니다.
+    # ret_image.save(output_path)
+    # shadowed_image.show()
 
-    html = urlopen(url, context=context)
-    soup = bs(html, "html.parser")
+    x,y = shadowed_image.size
+    yres = int((1000-y)/2)
+    xres = int((1000-x)/2)
+    icon_x = xres + x - 20
+    icon_y = yres + y - 20
+    blank_image = Image.new("RGBA", (1000, 1000), (255, 255, 255, 255))
+    blank_image.paste(shadowed_image, (xres, yres))
+    ret_image = blank_image.convert('RGB')
+    # ret_image.show()
+    ret_image.paste(icon_image, (icon_x, icon_y))
+    # icon_image.show()
+    ret_image.show()
 
+def _resize_img(src):
+    img = Image.open(src)
+    resized_img = img.resize(
+        (int(img.size[0]*900/img.size[1]), 900), Image.LANCZOS)
+    resized_img.save("output.jpg")
 
-    img_tags = soup.select_one("#infoset_chYes > div.infoSetCont_wrap > div > img")
-    src = img_tags.get("src")
-    print(src)
-
-    title = soup.find("meta", property="og:title")['content']
-    title = title.split("-")[0]
-    print(title)
-
-    category = soup.select_one("#infoset_goodsCate > div.infoSetCont_wrap > dl:nth-child(1) > dd > ul > li > a:nth-child(6)")
-    category = category.text
-    print(category)
-
-    disc = soup.find('meta',{'name':'description'})
-    disc = disc['content']
-    print(disc)
-
-    author = soup.select_one("#yDetailTopWrap > div.topColRgt > div.gd_infoTop > span.gd_pubArea > span.gd_auth > a")
-    author = author.text
-    print(author)
-
-    publisher = soup.select_one("#yDetailTopWrap > div.topColRgt > div.gd_infoTop > span.gd_pubArea > span.gd_pub > a")
-    publisher = publisher.text
-    print(publisher)
-
-
-    price = soup.select_one("#yDetailTopWrap > div.topColRgt > div.gd_infoBot > div.gd_infoTbArea")
-    price = price.find_all("em")
-    if price[0].text == "":
-        print(price[1].text.strip("원"))
-    else:
-        print(price[0].text)
-
-    date = soup.select_one("#yDetailTopWrap > div.topColRgt > div.gd_infoTop > span.gd_pubArea > span.gd_date")
-    print(date.text)
-
-
-    date = soup.select_one("#infoset_specific > div.infoSetCont_wrap > div > table > tbody > tr:nth-child(2) > td")
-    print(date.text.split("|")[2].strip())
-    
-
-# 하고싶은 것은 dict에 함수를 넣고 싶다.
-
-def test():
-    print("test")
-
-def test2():
-    print("test2")
-
-my_dit =  {"Yes":abc, "No":test2}
-    
-class abc:
-    def __init__(self) -> None:
-        pass
-    
 if __name__ == "__main__":
-    str = "Yes"
-    fucn = my_dit["Yes"]
-    fucn()
+    image_path = r"C:\Users\asomu\OneDrive\사진\9791168411685.jpg"
+    output_path = "output.jpg"
+    # resize_and_center_image(image_path, output_path)
+    _resize_img(image_path)

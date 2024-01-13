@@ -9,6 +9,7 @@ import os
 from datetime import date
 from book_info import BookInfo
 from typing import List
+from enum import Enum, auto
 
 class BookInfoSaver:
     """book_info list를 excel로 저장한다.
@@ -60,3 +61,16 @@ class BookInfoSaver:
             else:
                 order += 1
         return workbook
+
+
+class Site(Enum):
+    Kyobo = auto()
+    Yes24 = auto()
+    Aladin = auto()
+
+
+class Mode(Enum):
+    y1000 = auto()
+    coopang = auto()
+    naver = auto()
+    normal = auto()

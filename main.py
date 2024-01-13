@@ -1,12 +1,10 @@
-"""한국의 온라인 서점의 상품자료를 수집하는 프로그램.
+"""한국의 온라인 서점의 커버이미지를 수집하는 프로그램.
 
     main.py : book_scraper를 사용하는 book_manager가 정의되어 있다.
     
 """
-from kyobo import get_book_data
 from book_scraper import BookScraperFactory
-from book_info_save import BookInfoSaver
-from selenium import webdriver
+from book_info_save import Mode, Site
 from chrome_controler import get_driver
 import yaml
 import time
@@ -51,11 +49,14 @@ class book_manager:
             for isbn in isbns:
                 if isbn == "\n":
                     continue
-                scrap_factory = BookScraperFactory("Kyobo", driver)
+                scrap_factory = BookScraperFactory(Site.Kyobo, driver)
                 scrap_factory.set_isbn(isbn)
                 scraper = scrap_factory.create()
-                scraper.save_cover_image()
                 scraper.save_detailed_image()
+                scraper.save_cover_image("표지")
+                scraper.save_cover_image("y1000")
+                scraper.save_cover_image("쿠팡")
+                scraper.save_cover_image("네이버")
 
 
 if __name__ == "__main__":
