@@ -7,7 +7,6 @@
 4. BookScraperYes24
 5. BookScraperAladin
 """
-from book_info_save import Mode, Site
 from bs4 import BeautifulSoup as bs
 from urllib.request import urlopen
 from abc import ABC, abstractmethod
@@ -31,9 +30,9 @@ class BookScraperFactory:
 
     def __init__(self, site: str, driver):
         self._site = site
-        self._scraper = {Site.Kyobo: self.create_kyobo,
-                         Site.Yes24: self.create_yes24,
-                         Site.Aladin: self.create_aladin}
+        self._scraper = {"Kyobo": self.create_kyobo,
+                         "Yes24": self.create_yes24,
+                         "Aladin": self.create_aladin}
         self._driver = driver
 
     def set_isbn(self, isbn: str):
@@ -68,15 +67,15 @@ class BookScraperBase(ABC):
         if self.book_info.isbn == "":
             self.book_info.isbn = self._isbn
             self.book_info.title = self._get_title().strip()
-            # self.book_info.category = self._get_category()
-            # self.book_info.decription = self._get_description()
-            # self.book_info.author = self._get_author()
-            # self.book_info.publisher = self._get_publisher()
-            # self.book_info.price_ori = self._get_price_ori()
-            # self.book_info.price_rel = self._get_price_rel()
-            # self.book_info.publised_date = self._get_published_date()
-            # self.book_info.page = self._get_page()
-            # self.book_info.book_size = self._get_book_size()
+            self.book_info.category = self._get_category()
+            self.book_info.decription = self._get_description()
+            self.book_info.author = self._get_author()
+            self.book_info.publisher = self._get_publisher()
+            self.book_info.price_ori = self._get_price_ori()
+            self.book_info.price_rel = self._get_price_rel()
+            self.book_info.publised_date = self._get_published_date()
+            self.book_info.page = self._get_page()
+            self.book_info.book_size = self._get_book_size()
         return self.book_info
 
     def save_cover_image(self, state) -> None:
@@ -114,7 +113,7 @@ class BookScraperBase(ABC):
         elif post_fix == "y1000":
             final_img = self._resize_y_img(file_name, 900)
             final_img = self._add_border(final_img)
-            final_img, origin_img_start_pos = self._paste_on_white_backgound_image(final_img, 1000)
+            final_img = self._paste_on_white_backgound_image(final_img, 1000, "y1000")
         elif post_fix == "쿠팡":
             final_img = self._resize_y_img(file_name, 810)
             final_img = self._add_border(final_img)
@@ -123,6 +122,8 @@ class BookScraperBase(ABC):
             final_img = self._resize_y_img(file_name, 810)
             final_img = self._add_border(final_img)
             final_img = self._paste_on_white_backgound_image(final_img, 1000, "네이버")
+        else:
+            return
         final_img.save(file_name)
 
     def _save_x860_img(self, src):
@@ -355,18 +356,31 @@ class BookScraperYes24(BookScraperBase):
     def __init__(self, isbn, driver):
         super().__init__(isbn)
         self._url: str = f'http://www.yes24.com/Product/Search?domain=ALL&query={isbn}'
+        self._driver = driver
         self.connect_selenium()
         self.get_info()
 
     def connect_bs(self) -> None:
         url = self.get_item_url()
+        #yesSchList > li > div > div.item_info > div.info_row.info_name > a.gd_name
         html = urlopen(url, context=context)
         self.soup = bs(html, "html.parser")
 
-    def connect_selenium(self, driver) -> None:
-        driver.get(self._url)
-        time.sleep(1)
-        html = driver.page_source
+    def connect_selenium(self) -> None:
+        self._driver.get(self._url)
+        # time.sleep(1)
+        html = self._driver.page_source
+        soup = bs(html, "html.parser")
+        tag = soup.select_one(
+            "#yesSchList > li > div > div.item_img > div.img_canvas > span > span > a")
+        if tag is None:
+            item_url = "56015266"
+        else:
+            item_url = tag.get("href")
+        self._item_url = f"http://www.yes24.com/{item_url}"
+        self._driver.get(self._item_url)
+        # time.sleep(1)
+        html = self._driver.page_source
         self.soup = bs(html, "html.parser")
 
     def get_item_url(self):
@@ -383,7 +397,7 @@ class BookScraperYes24(BookScraperBase):
 
     def _get_cover_img_src(self) -> str:
         img_tags = self.soup.select_one(
-            "#yDetailTopWrap > div.topColLft > div > span > em > img")
+            "#yDetailTopWrap > div.topColLft > div > div.gd_3dGrp.gdImgLoadOn > div > span.gd_img > em > img")
         if img_tags is None:
             src = ""
         else:
@@ -396,7 +410,7 @@ class BookScraperYes24(BookScraperBase):
         if img_tag is None:
             src = ""
         else:
-            src = img_tag.get('src')
+            src = img_tag.get('data-original')
         return src
 
     def _get_title(self) -> str:

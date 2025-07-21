@@ -4,10 +4,9 @@
     
 """
 from book_scraper import BookScraperFactory
-from book_info_save import Mode, Site
+
 from chrome_controler import get_driver
 import yaml
-import time
 
 isbn = "isbn.txt"
 
@@ -31,25 +30,29 @@ class book_manager:
        3. 아이템의 각 정보들.        
     """
 
-    def __init__(self, id: str, pw: str, isbn: str = "isbn.txt") -> None:
-        self._isbn_file: str = isbn
+    def __init__(self, id: str, pw: str, isbn_file: str = "isbn.txt", site: str = "Yes24") -> None:
+        self._isbn_file: str = isbn_file
         self._id = id
         self._pw = pw
+        self._driver = None
+        self._site = site
+
+    def set_driver(self):
+        self._driver = get_driver(self._id, self._pw, self._site)
 
     def run(self):
         """book_manager의 메인동작이다.
-        1. BookScraperFactory에서 온라인 서점에 따른 scraper class를 가져온다.
+        1. BookScraperFactory에서 온라인 서점에 따른 scraper class를 생성한다.
         2. scraper를 이용하여 대표이미지를 저장한다.
         3. 상세페이지 이미지를 저장한다.
-        """
-        driver = get_driver(self._id, self._pw)
-        time.sleep(5)
+        """        
+        # time.sleep(1)
         with open(f"./{self._isbn_file}", 'r') as r:
             isbns = r.readlines()
             for isbn in isbns:
                 if isbn == "\n":
                     continue
-                scrap_factory = BookScraperFactory(Site.Kyobo, driver)
+                scrap_factory = BookScraperFactory(self._site, self._driver)
                 scrap_factory.set_isbn(isbn)
                 scraper = scrap_factory.create()
                 scraper.save_detailed_image()
@@ -61,5 +64,6 @@ class book_manager:
 
 if __name__ == "__main__":
     id, pw = get_login_info()
-    bm = book_manager(id, pw)
+    bm = book_manager(id, pw, "isbn.txt", "Yes24")
+    bm.set_driver()    
     bm.run()
