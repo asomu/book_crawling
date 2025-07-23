@@ -399,6 +399,9 @@ class BookScraperYes24(BookScraperBase):
         img_tags = self.soup.select_one(
             "#yDetailTopWrap > div.topColLft > div > div.gd_3dGrp.gdImgLoadOn > div > span.gd_img > em > img")
         if img_tags is None:
+            img_tags = self.soup.select_one(
+                "#yDetailTopWrap > div.topColLft > div > span > em > img")
+        if img_tags is None:
             src = ""
         else:
             src = img_tags.get("src")
