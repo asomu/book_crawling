@@ -417,7 +417,7 @@ class BookScraperYes24(BookScraperBase):
         return src
 
     def _get_title(self) -> str:
-        title = self.soup.find("meta", property="og:title")[
+        title = self.soup.find("meta", attrs={"name": "title"})[
             'content'].split("-")[0].replace(":", "")
         return title
 
