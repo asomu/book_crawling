@@ -68,7 +68,7 @@ def test_download_single_book_assets_returns_zip():
             ImageAsset(
                 isbn=isbn,
                 variant="cover",
-                file_path=str(asset_path.relative_to(settings.data_dir.parent)),
+                file_path=str(asset_path.relative_to(settings.user_data_dir)),
                 width=120,
                 height=180,
             )
@@ -116,7 +116,7 @@ def test_download_selected_books_returns_zip():
             ImageAsset(
                 isbn=isbn,
                 variant="cover",
-                file_path=str(asset_path.relative_to(settings.data_dir.parent)),
+                file_path=str(asset_path.relative_to(settings.user_data_dir)),
                 width=100,
                 height=150,
             )
@@ -139,3 +139,36 @@ def test_settings_healthcheck_without_credentials_reports_anonymous_mode():
         response = client.post("/settings/healthcheck")
         assert response.status_code == 200
         assert "익명 수집으로 계속 동작합니다" in response.text
+
+
+def test_healthz_reports_ready():
+    with TestClient(app, raise_server_exceptions=False) as client:
+        response = client.get("/healthz")
+        assert response.status_code == 200
+        assert response.json()["ok"] is True
+
+
+def test_settings_page_shows_runtime_actions():
+    with SessionLocal() as session:
+        session.execute(delete(SiteCredential).where(SiteCredential.site == Site.YES24.value))
+        session.commit()
+
+    with TestClient(app, raise_server_exceptions=False) as client:
+        response = client.get("/settings")
+        assert response.status_code == 200
+        assert "데이터 폴더 열기" in response.text
+        assert "로그 내보내기" in response.text
+        assert "처음 실행할 때 확인할 것" in response.text
+
+
+def test_download_logs_returns_zip():
+    settings = get_settings()
+    log_file = settings.logs_dir / "app.log"
+    log_file.parent.mkdir(parents=True, exist_ok=True)
+    log_file.write_text("desktop-log", encoding="utf-8")
+
+    with TestClient(app, raise_server_exceptions=False) as client:
+        response = client.get("/settings/logs/download")
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "application/zip"
+        assert response.content[:2] == b"PK"

@@ -1,6 +1,18 @@
 {% extends "base.html" %}
 {% block title %}Settings | Book Crawling 후딱 v2{% endblock %}
 {% block content %}
+{% if first_run %}
+<section class="panel mb-6">
+  <div class="eyebrow">first run</div>
+  <h2 class="panel-title">처음 실행할 때 확인할 것</h2>
+  <div class="grid gap-3 text-sm">
+    <div><strong>1.</strong> Yes24 계정을 저장합니다. 성인인증 도서까지 다루려면 계정 저장을 권장합니다.</div>
+    <div><strong>2.</strong> `상태 점검` 버튼으로 로그인과 브라우저 기동을 확인합니다.</div>
+    <div><strong>3.</strong> 대시보드로 돌아가 ISBN 목록을 넣고 작업을 시작합니다.</div>
+  </div>
+</section>
+{% endif %}
+
 <section class="two-col">
   <div class="panel">
     <div class="eyebrow">credentials</div>
@@ -33,12 +45,19 @@
   <div class="panel">
     <div class="eyebrow">runtime</div>
     <h2 class="panel-title">운영 정보</h2>
+    <div class="btn-row mb-4">
+      <form method="post" action="/settings/open-data-folder">
+        <button class="btn-ghost" type="submit">데이터 폴더 열기</button>
+      </form>
+      <a class="btn-ghost" href="/settings/logs/download">로그 내보내기</a>
+    </div>
     <div class="grid gap-3 text-sm">
-      <div><strong>Database:</strong> {{ request.app.state.settings.database_url }}</div>
-      <div><strong>Assets:</strong> {{ request.app.state.settings.assets_dir }}</div>
-      <div><strong>Browser State:</strong> {{ request.app.state.settings.yes24_storage_state_path }}</div>
-      <div><strong>Snapshots:</strong> {{ request.app.state.settings.snapshots_dir }}</div>
-      <div><strong>Credential Saved:</strong> {{ "yes" if credential else "no" }}</div>
+      {% for check in runtime_checks %}
+      <div>
+        <strong>{{ check.label }}:</strong>
+        <span>{{ check.value }}</span>
+      </div>
+      {% endfor %}
     </div>
     <div id="healthcheck-result" class="mt-4">
       {% include "settings/healthcheck_result.html" %}

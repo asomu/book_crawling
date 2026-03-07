@@ -38,5 +38,5 @@ class FilesystemStorage:
         path = Path(file_path)
         if path.is_absolute():
             return path if path.exists() else None
-        candidate = self.settings.data_dir.parent / file_path
+        candidate = self.settings.runtime_root / file_path
         return candidate if candidate.exists() else None

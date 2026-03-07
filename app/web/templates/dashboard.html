@@ -1,6 +1,18 @@
 {% extends "base.html" %}
 {% block title %}Dashboard | Book Crawling 후딱 v2{% endblock %}
 {% block content %}
+{% if show_onboarding %}
+<section class="panel mb-6">
+  <div class="eyebrow">onboarding</div>
+  <h2 class="panel-title">처음 사용하는 환경입니다</h2>
+  <p class="muted mb-4">설정에서 Yes24 자격증명을 저장하고 상태 점검을 먼저 끝내면 이후 작업 생성과 재시도가 훨씬 안정적으로 동작합니다.</p>
+  <div class="btn-row">
+    <a class="btn-main" href="/settings">설정으로 이동</a>
+    <a class="btn-ghost" href="/books">기존 결과 먼저 보기</a>
+  </div>
+</section>
+{% endif %}
+
 <section class="stats-grid mb-6">
   <div class="stat-card">
     <div class="stat-label">Books</div>

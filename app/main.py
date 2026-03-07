@@ -32,6 +32,7 @@ def configure_logging() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
+    settings.configure_process_environment()
     configure_logging()
     init_db()
 
@@ -51,6 +52,12 @@ async def lifespan(app: FastAPI):
     worker.stop()
 
 
-app = FastAPI(title="Book Crawling 후딱 v2", lifespan=lifespan)
-app.mount("/static", StaticFiles(directory="app/web/static"), name="static")
-app.include_router(router)
+def create_app() -> FastAPI:
+    settings = get_settings()
+    application = FastAPI(title=settings.app_name, lifespan=lifespan)
+    application.mount("/static", StaticFiles(directory=settings.static_dir.as_posix()), name="static")
+    application.include_router(router)
+    return application
+
+
+app = create_app()

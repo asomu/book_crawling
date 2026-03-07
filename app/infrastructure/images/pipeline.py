@@ -41,7 +41,7 @@ class ImagePipeline:
             image.save(path, format="JPEG", quality=95)
         except Exception as exc:
             raise StorageFailedError(f"Unable to save image asset {kind.value}: {exc}") from exc
-        relative = path.relative_to(self.settings.data_dir.parent)
+        relative = path.relative_to(self.settings.runtime_root)
         width, height = image.size
         return StoredAsset(kind=kind, file_path=str(relative), width=width, height=height)
 

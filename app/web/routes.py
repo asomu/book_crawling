@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
 from io import BytesIO
 from pathlib import Path
 from typing import Iterable, Optional
@@ -21,8 +24,8 @@ from app.infrastructure.db.session import SessionLocal
 
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/web/templates")
 settings = get_settings()
+templates = Jinja2Templates(directory=settings.template_dir.as_posix())
 
 
 def _format_dt(value):
@@ -106,7 +109,7 @@ def _event_label(event: CrawlEvent) -> str:
 def _asset_absolute_path(file_path: str) -> Path:
     path = Path(file_path)
     if not path.is_absolute():
-        path = settings.data_dir.parent / path
+        path = settings.runtime_root / path
     return path
 
 
@@ -118,6 +121,17 @@ def _book_archive_members(books: Iterable[Book]) -> list[tuple[str, Path]]:
             if not path.exists():
                 continue
             members.append((f"{book.isbn}/{asset.variant}.jpg", path))
+    return members
+
+
+def _log_archive_members() -> list[tuple[str, Path]]:
+    members: list[tuple[str, Path]] = []
+    if not settings.logs_dir.exists():
+        return members
+
+    for path in sorted(settings.logs_dir.glob("*")):
+        if path.is_file():
+            members.append((f"logs/{path.name}", path))
     return members
 
 
@@ -138,9 +152,90 @@ def _zip_response(members: list[tuple[str, Path]], filename: str) -> StreamingRe
     )
 
 
+def _credential_saved(credential: SiteCredential | None) -> bool:
+    return bool(credential and credential.username.strip())
+
+
+def _runtime_checks(credential: SiteCredential | None) -> list[dict[str, str]]:
+    path_entries = [
+        ("앱 모드", "Desktop" if settings.desktop_mode else "Server"),
+        ("Bundle Root", settings.bundle_dir.as_posix()),
+        ("User Data", settings.user_data_dir.as_posix()),
+        ("Database", settings.database_url),
+        ("Assets", settings.assets_dir.as_posix()),
+        ("Logs", settings.logs_dir.as_posix()),
+        ("Browser State", settings.yes24_storage_state_path.as_posix()),
+        ("Templates", settings.template_dir.as_posix()),
+        ("Static", settings.static_dir.as_posix()),
+        ("Resource", settings.resource_dir.as_posix()),
+    ]
+    checks = [
+        {
+            "label": label,
+            "value": value,
+            "status": "ok",
+        }
+        for label, value in path_entries
+    ]
+    checks.extend(
+        [
+            {
+                "label": "Credential Saved",
+                "value": "yes" if _credential_saved(credential) else "no",
+                "status": "ok" if _credential_saved(credential) else "warning",
+            },
+            {
+                "label": "Secret Key",
+                "value": "ready" if settings.secret_key_path.exists() else "pending",
+                "status": "ok" if settings.secret_key_path.exists() else "warning",
+            },
+            {
+                "label": "Bundled Browser",
+                "value": os.getenv("PLAYWRIGHT_BROWSERS_PATH", "system/default"),
+                "status": "ok" if os.getenv("PLAYWRIGHT_BROWSERS_PATH") else "warning",
+            },
+        ]
+    )
+    return checks
+
+
+def _settings_context(
+    request: Request,
+    credential: SiteCredential | None,
+    *,
+    message: str = "",
+    health_result: HealthcheckResult | None = None,
+) -> dict:
+    return {
+        "credential": credential,
+        "message": message,
+        "health_result": health_result,
+        "runtime_checks": _runtime_checks(credential),
+        "first_run": not _credential_saved(credential),
+    }
+
+
+def _open_directory(path: Path) -> None:
+    if sys.platform == "win32":
+        os.startfile(path)  # type: ignore[attr-defined]
+        return
+    command = ["open", path.as_posix()] if sys.platform == "darwin" else ["xdg-open", path.as_posix()]
+    subprocess.Popen(command)
+
+
+@router.get("/healthz")
+def healthz():
+    return {
+        "ok": True,
+        "mode": "desktop" if settings.desktop_mode else "server",
+        "user_data_dir": settings.user_data_dir.as_posix(),
+    }
+
+
 @router.get("/", response_class=HTMLResponse)
 def dashboard(request: Request, message: str = ""):
     with SessionLocal() as session:
+        credential = session.get(SiteCredential, Site.YES24.value)
         recent_jobs = (
             session.execute(
                 select(CrawlJob)
@@ -181,6 +276,7 @@ def dashboard(request: Request, message: str = ""):
                 "message": message,
                 "event_tone": _event_tone,
                 "event_label": _event_label,
+                "show_onboarding": not _credential_saved(credential),
             },
         )
 
@@ -434,7 +530,7 @@ def settings_page(request: Request, message: str = ""):
         return templates.TemplateResponse(
             request,
             "settings/index.html",
-            {"credential": credential, "message": message, "health_result": None},
+            _settings_context(request, credential, message=message),
         )
 
 
@@ -462,6 +558,17 @@ def settings_healthcheck(request: Request):
         cipher = CredentialCipher(settings)
         username = credential.username if credential else ""
         password = cipher.decrypt(credential.password_encrypted) if credential else ""
+    if not username or not password:
+        return templates.TemplateResponse(
+            request,
+            "settings/healthcheck_result.html",
+            {
+                "health_result": HealthcheckResult(
+                    ok=True,
+                    message="저장된 로그인 정보가 없습니다. 비성인 도서는 익명 수집으로 계속 동작합니다.",
+                )
+            },
+        )
     from app.infrastructure.storage.filesystem import FilesystemStorage
 
     storage = FilesystemStorage(settings)
@@ -477,6 +584,20 @@ def settings_healthcheck(request: Request):
     )
 
 
+@router.post("/settings/open-data-folder")
+def open_data_folder():
+    try:
+        _open_directory(settings.user_data_dir)
+    except Exception:
+        return RedirectResponse(url="/settings?message=폴더를+열지+못했습니다.", status_code=303)
+    return RedirectResponse(url="/settings?message=데이터+폴더를+열었습니다.", status_code=303)
+
+
+@router.get("/settings/logs/download")
+def download_logs():
+    return _zip_response(_log_archive_members(), "book-crawling-logs.zip")
+
+
 @router.get("/media/{asset_id}")
 def media_asset(asset_id: int):
     with SessionLocal() as session:
@@ -485,7 +606,7 @@ def media_asset(asset_id: int):
             raise HTTPException(status_code=404, detail="Asset not found")
         file_path = Path(asset.file_path)
         if not file_path.is_absolute():
-            file_path = settings.data_dir.parent / file_path
+            file_path = settings.runtime_root / file_path
         if not file_path.exists():
             raise HTTPException(status_code=404, detail="Asset file not found")
         return FileResponse(file_path)

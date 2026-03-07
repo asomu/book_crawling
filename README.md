@@ -36,6 +36,14 @@ uvicorn app.main:app --reload
 
 브라우저에서 `http://127.0.0.1:8000`으로 접속합니다.
 
+## Launch Modes
+
+- 로컬 서버만 실행: `python launcher.py server --host 127.0.0.1 --port 8000`
+- Windows 데스크톱 셸 실행: `python launcher.py desktop`
+
+데스크톱 모드는 `pywebview` 기반 창을 띄우고 내부에서 FastAPI 서버를 랜덤 localhost 포트로 실행합니다.
+설치형 Windows 배포에서는 모든 쓰기 데이터가 `%LOCALAPPDATA%\\BookCrawling` 아래에 저장됩니다.
+
 ## Shortcut Commands
 
 ```bash
@@ -94,5 +102,26 @@ pytest
 
 - v1 범위는 Yes24만 운영 지원합니다.
 - 성인인증이 필요한 도서는 익명 수집 대상에서 제외되며 `adult_verification_required`로 기록됩니다.
-- 자동 배치, 다중 사이트 동시 운영, EXE 단일 패키징은 후속 단계입니다.
+- 자동 배치, 다중 사이트 동시 운영, 자동 업데이트는 후속 단계입니다.
 - 기존 스크립트 기반 구현은 `legacy/` 아래에 보관했습니다.
+
+## Windows Packaging
+
+Windows 패키징은 Windows PC/VM에서만 수행합니다.
+
+```bash
+pip install -e ".[dev,windows]"
+python scripts/build_windows.py
+```
+
+빌드 결과:
+
+- 앱 번들: `dist/BookCrawling/`
+- 설치 프로그램: `dist/installer/BookCrawlingSetup.exe`
+
+패키징 스크립트는 다음을 수행합니다.
+
+1. Playwright Chromium을 앱 번들용으로 staging 합니다.
+2. WebView2 Evergreen Bootstrapper를 다운로드합니다.
+3. PyInstaller `onedir` 앱을 생성합니다.
+4. Inno Setup 설치 파일을 생성합니다.
