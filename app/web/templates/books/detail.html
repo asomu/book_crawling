@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}{{ book.title }} | Book Crawling 후딱 v2{% endblock %}
+{% block content %}
+<section class="hero-card mb-6">
+  <div class="eyebrow">book detail</div>
+  <h2 class="panel-title">{{ book.title }}</h2>
+  <div class="muted">{{ book.author }} · {{ book.publisher }} · {{ book.last_crawled_at|datetime }}</div>
+  <div class="btn-row mt-4">
+    <a class="btn-subtle" href="/books/{{ book.isbn }}/download">이 책 ZIP 다운로드</a>
+  </div>
+</section>
+
+<section class="two-col">
+  <div class="panel">
+    <div class="eyebrow">metadata</div>
+    <h3 class="panel-title">메타데이터</h3>
+    <div class="grid gap-3 text-sm">
+      <div><strong>ISBN:</strong> {{ book.isbn }}</div>
+      <div><strong>Category:</strong> {{ book.category or "-" }}</div>
+      <div><strong>Original Price:</strong> {{ book.price_original or "-" }}</div>
+      <div><strong>Sale Price:</strong> {{ book.price_sale or "-" }}</div>
+      <div><strong>Published:</strong> {{ book.published_date or "-" }}</div>
+      <div><strong>Page Count:</strong> {{ book.page_count or "-" }}</div>
+      <div><strong>Size:</strong> {{ book.book_size or "-" }}</div>
+      <div><strong>Product URL:</strong> <a class="underline" href="{{ book.product_url }}" target="_blank">{{ book.product_url }}</a></div>
+      <div><strong>Description:</strong><br><span class="muted">{{ book.description or "-" }}</span></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="eyebrow">recent runs</div>
+    <h3 class="panel-title">수집 이력</h3>
+    <div class="event-shell">
+      <div class="event-list">
+        {% for item in recent_items %}
+        <div class="event-item">
+          <span class="event-dot"></span>
+          <div>
+            <div>Job #{{ item.job_id }} · {{ item.isbn }}</div>
+            <div class="muted text-sm">{{ item.error_code or item.status }}</div>
+          </div>
+          <div><span class="badge {{ item.status }}">{{ item.status }}</span></div>
+        </div>
+        {% else %}
+        <div class="event-item">
+          <span class="event-dot"></span>
+          <div>관련 작업 이력이 없습니다.</div>
+          <div class="muted text-sm">-</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="panel mt-6">
+  <div class="eyebrow">assets</div>
+  <h3 class="panel-title">생성 이미지</h3>
+  <div class="asset-grid">
+    {% for asset in book.assets|sort(attribute='variant') %}
+    <div class="asset-card">
+      <img src="/media/{{ asset.id }}" alt="{{ asset.variant }}">
+      <div class="meta">
+        <div class="font-semibold uppercase">{{ asset.variant }}</div>
+        <div class="muted text-sm">{{ asset.width }} × {{ asset.height }}</div>
+      </div>
+    </div>
+    {% else %}
+    <div class="muted">아직 생성된 이미지가 없습니다.</div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

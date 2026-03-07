@@ -1,17 +1,48 @@
 [project]
-name = "book-crawling"
+name = "book-crawling-v2"
 version = "0.1.0"
-description = "Add your description here"
+description = "Local-first internal book crawling web app for Yes24 operations"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.9"
 dependencies = [
+    "alembic>=1.14.1",
     "beautifulsoup4>=4.13.4",
+    "cryptography>=44.0.1",
+    "fastapi>=0.115.12",
+    "httpx>=0.28.1",
+    "jinja2>=3.1.6",
     "pillow>=11.3.0",
-    "pyinstaller>=6.14.2",
-    "pyyaml>=6.0.2",
-    "selenium>=4.34.2",
-    "selenium-stealth>=1.0.6",
-    "setuptools>=80.9.0",
-    "undetected-chromedriver>=3.5.5",
-    "xlsxwriter>=3.2.5",
+    "playwright>=1.51.0",
+    "pydantic>=2.11.1",
+    "pydantic-settings>=2.8.1",
+    "python-multipart>=0.0.20",
+    "sqlalchemy>=2.0.40",
+    "uvicorn[standard]>=0.34.0",
 ]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.5",
+    "pytest-playwright>=0.7.0",
+]
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.setuptools.package-data]
+"app.web" = ["templates/**/*.html", "static/*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"

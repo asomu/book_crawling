@@ -1,0 +1,141 @@
+from pathlib import Path
+
+from fastapi.testclient import TestClient
+from PIL import Image
+from sqlalchemy import delete
+
+from app.config.settings import get_settings
+from app.domain.enums import Site
+from app.infrastructure.db.models import Book, ImageAsset, SiteCredential
+from app.infrastructure.db.session import SessionLocal
+
+from app.main import app
+
+
+def test_create_job_renders_detail_page():
+    with TestClient(app, raise_server_exceptions=False) as client:
+        response = client.post(
+            "/jobs",
+            data={"requested_by": "route-tester", "isbn_list": "9791130671017"},
+        )
+        assert response.status_code == 200
+        assert "Job #" in response.text
+        assert "실패 항목 재시도" in response.text
+
+
+def test_create_job_without_isbn_redirects_back_with_message():
+    with TestClient(app, raise_server_exceptions=False) as client:
+        response = client.post(
+            "/jobs",
+            data={"requested_by": "route-tester"},
+        )
+        assert response.status_code == 200
+        assert "유효한 ISBN을 입력하세요." in response.text
+        assert "작업 생성" in response.text
+
+
+def test_download_single_book_assets_returns_zip():
+    settings = get_settings()
+    isbn = "9999990000001"
+    asset_dir = settings.assets_dir / isbn
+    asset_dir.mkdir(parents=True, exist_ok=True)
+    asset_path = asset_dir / "cover.jpg"
+
+    image = Image.new("RGB", (120, 180), (40, 70, 100))
+    image.save(asset_path, format="JPEG")
+
+    with SessionLocal() as session:
+        session.execute(delete(ImageAsset).where(ImageAsset.isbn == isbn))
+        book = session.get(Book, isbn)
+        if not book:
+            book = Book(
+                isbn=isbn,
+                site="yes24",
+                title="ZIP 테스트",
+                author="테스터",
+                publisher="테스트출판사",
+                description="",
+                category="테스트",
+                price_original="10000",
+                price_sale="9000",
+                published_date="2024년 01월 01일",
+                page_count="100쪽",
+                book_size="120*180*10mm",
+                product_url="https://example.com",
+            )
+            session.add(book)
+        session.add(
+            ImageAsset(
+                isbn=isbn,
+                variant="cover",
+                file_path=str(asset_path.relative_to(settings.data_dir.parent)),
+                width=120,
+                height=180,
+            )
+        )
+        session.commit()
+
+    with TestClient(app, raise_server_exceptions=False) as client:
+        response = client.get(f"/books/{isbn}/download")
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "application/zip"
+        assert response.content[:2] == b"PK"
+
+
+def test_download_selected_books_returns_zip():
+    settings = get_settings()
+    isbn = "9999990000002"
+    asset_dir = settings.assets_dir / isbn
+    asset_dir.mkdir(parents=True, exist_ok=True)
+    asset_path = asset_dir / "cover.jpg"
+
+    image = Image.new("RGB", (100, 150), (120, 60, 90))
+    image.save(asset_path, format="JPEG")
+
+    with SessionLocal() as session:
+        session.execute(delete(ImageAsset).where(ImageAsset.isbn == isbn))
+        book = session.get(Book, isbn)
+        if not book:
+            book = Book(
+                isbn=isbn,
+                site="yes24",
+                title="선택 다운로드 테스트",
+                author="테스터",
+                publisher="테스트출판사",
+                description="",
+                category="테스트",
+                price_original="10000",
+                price_sale="9000",
+                published_date="2024년 01월 01일",
+                page_count="100쪽",
+                book_size="120*180*10mm",
+                product_url="https://example.com",
+            )
+            session.add(book)
+        session.add(
+            ImageAsset(
+                isbn=isbn,
+                variant="cover",
+                file_path=str(asset_path.relative_to(settings.data_dir.parent)),
+                width=100,
+                height=150,
+            )
+        )
+        session.commit()
+
+    with TestClient(app, raise_server_exceptions=False) as client:
+        response = client.post("/books/download", data={"isbns": [isbn]})
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "application/zip"
+        assert response.content[:2] == b"PK"
+
+
+def test_settings_healthcheck_without_credentials_reports_anonymous_mode():
+    with SessionLocal() as session:
+        session.execute(delete(SiteCredential).where(SiteCredential.site == Site.YES24.value))
+        session.commit()
+
+    with TestClient(app, raise_server_exceptions=False) as client:
+        response = client.post("/settings/healthcheck")
+        assert response.status_code == 200
+        assert "익명 수집으로 계속 동작합니다" in response.text

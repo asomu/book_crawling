@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Book Crawling 후딱 v2{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <link rel="stylesheet" href="{{ request.url_for('static', path='app.css') }}">
+</head>
+<body class="grain">
+  <div class="app-shell">
+    <header class="header-card">
+      <div class="header-main">
+        <div class="header-copy">
+          <div class="eyebrow">book operations</div>
+          <h1 class="display-title">Book Crawling 후딱 v2</h1>
+          <p class="display-subtitle">
+            Yes24 운영용 내부 웹앱. 크롤링 작업 생성, 실패 재시도, 메타데이터 관리,
+            이미지 산출물 확인을 한 화면 흐름으로 연결합니다.
+          </p>
+        </div>
+        <nav class="nav-chips">
+          <a class="nav-chip {% if request.url.path == '/' %}active{% endif %}" href="/">Dashboard</a>
+          <a class="nav-chip {% if request.url.path.startswith('/books') %}active{% endif %}" href="/books">Books</a>
+          <a class="nav-chip {% if request.url.path.startswith('/settings') %}active{% endif %}" href="/settings">Settings</a>
+        </nav>
+      </div>
+    </header>
+
+    {% if message %}
+    <div class="message-banner">{{ message }}</div>
+    {% endif %}
+
+    {% block content %}{% endblock %}
+  </div>
+</body>
+</html>

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Settings | Book Crawling 후딱 v2{% endblock %}
+{% block content %}
+<section class="two-col">
+  <div class="panel">
+    <div class="eyebrow">credentials</div>
+    <h2 class="panel-title">Yes24 자격증명</h2>
+    <p class="muted mb-4">자격증명은 선택 사항입니다. 기본 수집은 익명 브라우징으로 진행되고, Yes24 성인인증이 필요한 도서만 `adult_verification_required`로 실패 처리됩니다. 상태 점검은 저장된 계정의 로그인 가능 여부만 확인합니다.</p>
+    <form method="post" action="/settings/credentials" class="form-stack">
+      <div>
+        <label class="field-label" for="username">Username</label>
+        <input class="input" id="username" name="username" value="{{ credential.username if credential else '' }}">
+      </div>
+      <div>
+        <label class="field-label" for="password">Password</label>
+        <input class="input" id="password" type="password" name="password" value="">
+      </div>
+      <div class="btn-row">
+        <button class="btn-main" type="submit">저장</button>
+        <button
+          class="btn-ghost"
+          type="button"
+          hx-post="/settings/healthcheck"
+          hx-target="#healthcheck-result"
+          hx-swap="innerHTML"
+        >
+          상태 점검
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <div class="panel">
+    <div class="eyebrow">runtime</div>
+    <h2 class="panel-title">운영 정보</h2>
+    <div class="grid gap-3 text-sm">
+      <div><strong>Database:</strong> {{ request.app.state.settings.database_url }}</div>
+      <div><strong>Assets:</strong> {{ request.app.state.settings.assets_dir }}</div>
+      <div><strong>Browser State:</strong> {{ request.app.state.settings.yes24_storage_state_path }}</div>
+      <div><strong>Snapshots:</strong> {{ request.app.state.settings.snapshots_dir }}</div>
+      <div><strong>Credential Saved:</strong> {{ "yes" if credential else "no" }}</div>
+    </div>
+    <div id="healthcheck-result" class="mt-4">
+      {% include "settings/healthcheck_result.html" %}
+    </div>
+  </div>
+</section>
+{% endblock %}

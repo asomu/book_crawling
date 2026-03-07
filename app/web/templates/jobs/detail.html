@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Job #{{ job.id }} | Book Crawling 후딱 v2{% endblock %}
+{% block content %}
+<section
+  hx-get="/jobs/{{ job.id }}/panel"
+  hx-trigger="load, every 2s"
+  hx-swap="innerHTML"
+>
+  {% include "jobs/panel.html" %}
+</section>
+{% endblock %}

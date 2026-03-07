@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Dashboard | Book Crawling 후딱 v2{% endblock %}
+{% block content %}
+<section class="stats-grid mb-6">
+  <div class="stat-card">
+    <div class="stat-label">Books</div>
+    <div class="stat-value">{{ stats.books }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Jobs</div>
+    <div class="stat-value">{{ stats.jobs }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Running</div>
+    <div class="stat-value">{{ stats.running }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Failed Items</div>
+    <div class="stat-value">{{ stats.failed_items }}</div>
+  </div>
+</section>
+
+<section class="dashboard-grid">
+  <div class="panel">
+    <div class="eyebrow">create crawl job</div>
+    <h2 class="panel-title">작업 생성</h2>
+    <p class="muted mb-4">ISBN을 여러 줄로 입력하면 worker가 Yes24를 순차 수집합니다. 비성인 도서는 로그인 없이도 동작하고, 성인인증이 필요한 도서는 실패 항목으로 분리되어 재시도나 제외 판단이 가능합니다.</p>
+    <form method="post" action="/jobs" class="form-stack">
+      <div>
+        <label class="field-label" for="requested_by">Requested By</label>
+        <input class="input" id="requested_by" name="requested_by" value="local-operator">
+      </div>
+      <div>
+        <label class="field-label" for="isbn_list">ISBN List</label>
+        <textarea class="textarea" id="isbn_list" name="isbn_list" placeholder="9791130671017&#10;9791190749053"></textarea>
+      </div>
+      <div class="btn-row">
+        <button class="btn-main" type="submit">작업 시작</button>
+        <a class="btn-ghost" href="/settings">자격증명 확인</a>
+      </div>
+    </form>
+  </div>
+
+  <div class="panel">
+    <div class="eyebrow">recent activity</div>
+    <h2 class="panel-title">최근 작업 이벤트</h2>
+    <div class="event-shell">
+      <div class="event-list">
+        {% for event in recent_events %}
+        {% set tone = event_tone(event) %}
+        <div class="event-item {{ tone }}">
+          <span class="event-dot {{ tone }}"></span>
+          <div>
+            <div class="event-head"><span class="event-tag {{ tone }}">{{ event_label(event) }}</span></div>
+            <div>{{ event.message }}</div>
+            <div class="muted text-sm">Job #{{ event.job_id }}{% if event.job_item_id %} · Item #{{ event.job_item_id }}{% endif %}</div>
+          </div>
+          <div class="muted text-sm">{{ event.created_at|datetime }}</div>
+        </div>
+        {% else %}
+        <div class="event-item success">
+          <span class="event-dot success"></span>
+          <div>아직 기록된 작업 이벤트가 없습니다.</div>
+          <div class="muted text-sm">clean slate</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="panel mt-6">
+  <div class="eyebrow">recent jobs</div>
+  <h2 class="panel-title">작업 현황</h2>
+  <div
+    hx-get="/partials/dashboard-jobs"
+    hx-trigger="load, every 3s"
+    hx-swap="innerHTML"
+  >
+    {% include "partials/dashboard_jobs.html" %}
+  </div>
+</section>
+{% endblock %}

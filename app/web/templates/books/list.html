@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Books | Book Crawling 후딱 v2{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="eyebrow">catalog</div>
+  <h2 class="panel-title">도서 데이터</h2>
+  <form method="get" action="/books" class="btn-row mb-4">
+    <input class="input" style="max-width:420px" name="q" value="{{ query }}" placeholder="제목, ISBN, 출판사, 저자 검색">
+    <button class="btn-main" type="submit">검색</button>
+  </form>
+  <form method="post" action="/books/download">
+    <div class="btn-row mb-4">
+      <button class="btn-main" type="submit">선택 도서 ZIP 다운로드</button>
+      <button class="btn-ghost" type="button" onclick="document.querySelectorAll('input[name=&quot;isbns&quot;]').forEach(el => el.checked = true)">전체 선택</button>
+      <button class="btn-ghost" type="button" onclick="document.querySelectorAll('input[name=&quot;isbns&quot;]').forEach(el => el.checked = false)">선택 해제</button>
+    </div>
+    <div class="table-shell">
+      <table>
+        <thead>
+          <tr>
+            <th class="table-check">Select</th>
+            <th>ISBN</th>
+            <th>Title</th>
+            <th>Author</th>
+            <th>Publisher</th>
+            <th>Assets</th>
+            <th>Last Crawled</th>
+            <th class="table-action">Detail</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for book in books %}
+          <tr>
+            <td class="table-check">
+              {% if book.assets %}
+              <input type="checkbox" name="isbns" value="{{ book.isbn }}">
+              {% endif %}
+            </td>
+            <td>{{ book.isbn }}</td>
+            <td>{{ book.title }}</td>
+            <td>{{ book.author }}</td>
+            <td>{{ book.publisher }}</td>
+            <td>{{ book.assets|length }}</td>
+            <td>{{ book.last_crawled_at|datetime }}</td>
+            <td class="table-action"><a class="btn-subtle" href="/books/{{ book.isbn }}">상세 보기</a></td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="8" class="muted">조건에 맞는 도서가 없습니다.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </form>
+</section>
+{% endblock %}

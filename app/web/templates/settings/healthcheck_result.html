@@ -1,0 +1,7 @@
+{% if health_result %}
+<div class="message-banner" style="background:{% if health_result.ok %}rgba(27,125,77,0.12){% else %}rgba(189,58,36,0.11){% endif %}; border-color:{% if health_result.ok %}rgba(27,125,77,0.18){% else %}rgba(189,58,36,0.18){% endif %};">
+  {{ health_result.message }}
+</div>
+{% else %}
+<div class="muted text-sm">아직 상태 점검을 실행하지 않았습니다.</div>
+{% endif %}

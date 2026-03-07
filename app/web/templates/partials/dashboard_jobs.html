@@ -1,0 +1,33 @@
+<div class="table-shell">
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Status</th>
+        <th>Requested By</th>
+        <th>Items</th>
+        <th>Created</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for job in recent_jobs %}
+      {% set counts = job_counts(job) %}
+      <tr>
+        <td>#{{ job.id }}</td>
+        <td><span class="badge {{ job.status }}">{{ job.status }}</span></td>
+        <td>{{ job.requested_by }}</td>
+        <td>
+          <span class="text-sm">S {{ counts["success"] }} / F {{ counts["failed"] }} / P {{ counts["pending"] + counts["running"] }}</span>
+        </td>
+        <td>{{ job.created_at|datetime }}</td>
+        <td><a class="btn-subtle" href="/jobs/{{ job.id }}">열기</a></td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="6" class="muted">아직 생성된 작업이 없습니다.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

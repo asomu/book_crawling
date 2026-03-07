@@ -1,0 +1,112 @@
+<div class="hero-card">
+  <div class="eyebrow">job detail</div>
+  <div class="flex flex-wrap justify-between gap-4 items-start">
+    <div>
+      <h2 class="panel-title">Job #{{ job.id }}</h2>
+      <div class="muted">요청자 {{ job.requested_by }} · 생성 {{ job.created_at|datetime }}</div>
+    </div>
+    <div class="btn-row">
+      <span class="badge {{ job.status }}">{{ job.status }}</span>
+      {% if job.status in ["success", "partial_success"] and job_counts["success"] > 0 %}
+      <a class="btn-subtle" href="/jobs/{{ job.id }}/download">결과 ZIP 다운로드</a>
+      {% endif %}
+      <form method="post" action="/jobs/{{ job.id }}/retry-failed">
+        <button class="btn-main" type="submit">실패 항목 재시도</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<section class="stats-grid mt-6 mb-6">
+  <div class="stat-card">
+    <div class="stat-label">Pending</div>
+    <div class="stat-value">{{ job_counts["pending"] }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Running</div>
+    <div class="stat-value">{{ job_counts["running"] }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Success</div>
+    <div class="stat-value">{{ job_counts["success"] }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Failed</div>
+    <div class="stat-value">{{ job_counts["failed"] }}</div>
+  </div>
+</section>
+
+{% if job.status in ["success", "partial_success"] and job_counts["success"] > 0 %}
+<script>
+  (() => {
+    const key = "job-auto-download-{{ job.id }}-{{ job.status }}-{{ job_counts['success'] }}";
+    if (window.sessionStorage.getItem(key)) {
+      return;
+    }
+    window.sessionStorage.setItem(key, "1");
+    const iframe = document.createElement("iframe");
+    iframe.style.display = "none";
+    iframe.src = "/jobs/{{ job.id }}/download";
+    document.body.appendChild(iframe);
+  })();
+</script>
+{% endif %}
+
+<section class="two-col">
+  <div class="table-shell">
+    <table>
+      <thead>
+        <tr>
+          <th>ISBN</th>
+          <th>Status</th>
+          <th>Attempts</th>
+          <th>Error</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in job.items|sort(attribute='id') %}
+        <tr>
+          <td>{{ item.isbn }}</td>
+          <td><span class="badge {{ item.status }}">{{ item.status }}</span></td>
+          <td>{{ item.attempt_count }}</td>
+          <td class="text-sm muted">
+            {% if item.error_code %}
+            {{ item.error_code }}<br>{{ item.error_message }}
+            {% else %}
+            -
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="event-shell">
+    <div class="event-list">
+      {% set sorted_events = job.events|sort(attribute='created_at', reverse=True) %}
+      {% for event in sorted_events %}
+      {% if loop.index0 < 12 %}
+      {% set tone = event_tone(event) %}
+      <div class="event-item {{ tone }}">
+        <span class="event-dot {{ tone }}"></span>
+        <div>
+          <div class="event-head"><span class="event-tag {{ tone }}">{{ event_label(event) }}</span></div>
+          <div>{{ event.message }}</div>
+          <div class="muted text-sm">
+            {{ event.level }}{% if event.job_item_id %} · item #{{ event.job_item_id }}{% endif %}
+          </div>
+        </div>
+        <div class="muted text-sm">{{ event.created_at|datetime }}</div>
+      </div>
+      {% endif %}
+      {% else %}
+      <div class="event-item">
+        <span class="event-dot"></span>
+        <div>아직 기록된 이벤트가 없습니다.</div>
+        <div class="muted text-sm">-</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
