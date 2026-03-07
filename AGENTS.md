@@ -12,3 +12,4 @@
 - The active application is the FastAPI-based v2 app under `app/`.
 - The old script-based implementation is archived under `legacy/` and should not be extended.
 - If a task changes the crawler or image pipeline, run `./scripts/test.sh` before finishing.
+- For end-of-session cleanup in this repo, prefer the global skill `book-crawling-code-cleanup` at `/Users/mark/.codex/skills/book-crawling-code-cleanup/SKILL.md`.
