@@ -5,7 +5,8 @@ from pathlib import Path
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 
-project_root = Path(SPECPATH).resolve().parents[2]
+spec_dir = Path(SPECPATH).resolve()
+project_root = spec_dir.parent.parent
 staging_root = project_root / "build" / "windows" / "staging"
 
 
