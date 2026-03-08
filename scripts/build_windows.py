@@ -9,6 +9,8 @@ import sys
 import urllib.request
 from pathlib import Path
 
+from PIL import Image
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 STAGING_DIR = PROJECT_ROOT / "build" / "windows" / "staging"
@@ -16,6 +18,7 @@ DIST_DIR = PROJECT_ROOT / "dist"
 SPEC_PATH = PROJECT_ROOT / "packaging" / "windows" / "book_crawling.spec"
 ISS_PATH = PROJECT_ROOT / "packaging" / "windows" / "book_crawling.iss"
 WEBVIEW2_BOOTSTRAPPER_URL = "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
+ICON_SOURCE_PATH = PROJECT_ROOT / "legacy" / "build" / "book_icon.png"
 
 
 def run(command: list[str], *, env: dict[str, str] | None = None) -> None:
@@ -68,11 +71,28 @@ def stage_webview2_bootstrapper() -> Path:
     return destination
 
 
-def build_pyinstaller() -> None:
-    run([sys.executable, "-m", "PyInstaller", "--noconfirm", str(SPEC_PATH)])
+def stage_app_icon() -> Path:
+    if not ICON_SOURCE_PATH.exists():
+        raise RuntimeError(f"App icon source is missing: {ICON_SOURCE_PATH}")
+
+    destination = STAGING_DIR / "book.ico"
+    with Image.open(ICON_SOURCE_PATH) as source:
+        icon = source.convert("RGBA")
+        icon.save(
+            destination,
+            format="ICO",
+            sizes=[(256, 256), (128, 128), (64, 64), (48, 48), (32, 32), (16, 16)],
+        )
+    return destination
 
 
-def build_inno_setup(version: str, bootstrapper_path: Path) -> None:
+def build_pyinstaller(icon_path: Path) -> None:
+    env = os.environ.copy()
+    env["BOOKCRAWLER_WINDOWS_ICON"] = str(icon_path)
+    run([sys.executable, "-m", "PyInstaller", "--noconfirm", str(SPEC_PATH)], env=env)
+
+
+def build_inno_setup(version: str, bootstrapper_path: Path, icon_path: Path) -> None:
     iscc = os.environ.get("ISCC_PATH") or shutil.which("ISCC.exe") or shutil.which("iscc")
     if not iscc:
         raise RuntimeError("Inno Setup compiler was not found. Set ISCC_PATH or add ISCC.exe to PATH.")
@@ -83,6 +103,7 @@ def build_inno_setup(version: str, bootstrapper_path: Path) -> None:
             f"/DAppVersion={version}",
             f"/DStageDir={DIST_DIR / 'BookCrawling'}",
             f"/DBootstrapperPath={bootstrapper_path}",
+            f"/DSetupIconPath={icon_path}",
             str(ISS_PATH),
         ]
     )
@@ -93,9 +114,10 @@ def main() -> int:
     version = read_version()
     prepare_staging()
     stage_playwright_browsers()
+    icon_path = stage_app_icon()
     bootstrapper_path = stage_webview2_bootstrapper()
-    build_pyinstaller()
-    build_inno_setup(version, bootstrapper_path)
+    build_pyinstaller(icon_path)
+    build_inno_setup(version, bootstrapper_path, icon_path)
     print(f"Windows installer build completed: {DIST_DIR / 'installer'}")
     return 0
 

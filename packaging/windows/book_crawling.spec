@@ -1,5 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+import os
 from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
@@ -8,6 +9,7 @@ from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 spec_dir = Path(SPECPATH).resolve()
 project_root = spec_dir.parent.parent
 staging_root = project_root / "build" / "windows" / "staging"
+icon_path = Path(os.environ.get("BOOKCRAWLER_WINDOWS_ICON", staging_root / "book.ico"))
 
 
 def collect_tree(source: Path, destination: str):
@@ -71,7 +73,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=str(project_root / "legacy" / "build" / "book.ico"),
+    icon=str(icon_path),
 )
 
 coll = COLLECT(

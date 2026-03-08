@@ -7,6 +7,9 @@
 #ifndef BootstrapperPath
   #define BootstrapperPath "..\\..\\build\\windows\\staging\\MicrosoftEdgeWebView2Setup.exe"
 #endif
+#ifndef SetupIconPath
+  #define SetupIconPath "..\\..\\build\\windows\\staging\\book.ico"
+#endif
 
 [Setup]
 AppId={{B8A536D9-2C59-4E52-83CE-FBFF72310A12}
@@ -21,7 +24,7 @@ OutputBaseFilename=BookCrawlingSetup
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
-SetupIconFile=..\..\legacy\build\book.ico
+SetupIconFile={#SetupIconPath}
 ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
