@@ -114,6 +114,11 @@ pip install -e ".[dev,windows]"
 python scripts/build_windows.py
 ```
 
+Inno Setup이 설치되어 있지 않으면 설치 프로그램 생성 단계가 실패합니다. 이 경우:
+
+- Inno Setup 6을 설치해서 installer까지 생성
+- 또는 `BOOKCRAWLER_SKIP_INSTALLER=1 python scripts/build_windows.py`로 `dist/BookCrawling/` 번들만 생성
+
 빌드 결과:
 
 - 앱 번들: `dist/BookCrawling/`

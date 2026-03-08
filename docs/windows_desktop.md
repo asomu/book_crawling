@@ -15,13 +15,19 @@ Writable runtime data is stored under `%LOCALAPPDATA%\BookCrawling`.
 
 - Windows 10/11 build machine or VM
 - Python with project dependencies installed
-- Inno Setup compiler (`ISCC.exe`) on `PATH` or available via `ISCC_PATH`
+- Inno Setup compiler (`ISCC.exe`) on `PATH`, discoverable in a standard install path, or available via `ISCC_PATH`
 
 ## Build Command
 
 ```bash
 pip install -e ".[dev,windows]"
 python scripts/build_windows.py
+```
+
+If Inno Setup is not installed yet, you can still build the PyInstaller bundle only:
+
+```bash
+BOOKCRAWLER_SKIP_INSTALLER=1 python scripts/build_windows.py
 ```
 
 ## Output

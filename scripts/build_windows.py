@@ -22,6 +22,12 @@ ICON_SOURCE_CANDIDATES = [
     PROJECT_ROOT / "legacy" / "build" / "book_icon.png",
     PROJECT_ROOT / "legacy" / "build" / "book.ico",
 ]
+COMMON_INNO_SETUP_PATHS = [
+    Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")) / "Inno Setup 6" / "ISCC.exe",
+    Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Inno Setup 6" / "ISCC.exe",
+    Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")) / "Inno Setup 5" / "ISCC.exe",
+    Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Inno Setup 5" / "ISCC.exe",
+]
 
 
 def run(command: list[str], *, env: dict[str, str] | None = None) -> None:
@@ -146,10 +152,38 @@ def build_pyinstaller(icon_path: Path) -> None:
     run([sys.executable, "-m", "PyInstaller", "--noconfirm", str(SPEC_PATH)], env=env)
 
 
+def should_skip_installer() -> bool:
+    return os.environ.get("BOOKCRAWLER_SKIP_INSTALLER", "").lower() in {"1", "true", "yes"}
+
+
+def find_inno_setup() -> str | None:
+    candidates: list[Path | str] = []
+    if os.environ.get("ISCC_PATH"):
+        candidates.append(os.environ["ISCC_PATH"])
+    candidates.extend(
+        candidate
+        for candidate in (
+            shutil.which("ISCC.exe"),
+            shutil.which("iscc"),
+            *COMMON_INNO_SETUP_PATHS,
+        )
+        if candidate
+    )
+
+    for candidate in candidates:
+        path = Path(candidate)
+        if path.exists():
+            return str(path)
+    return None
+
+
 def build_inno_setup(version: str, bootstrapper_path: Path, icon_path: Path) -> None:
-    iscc = os.environ.get("ISCC_PATH") or shutil.which("ISCC.exe") or shutil.which("iscc")
+    iscc = find_inno_setup()
     if not iscc:
-        raise RuntimeError("Inno Setup compiler was not found. Set ISCC_PATH or add ISCC.exe to PATH.")
+        raise RuntimeError(
+            "Inno Setup compiler was not found. Install Inno Setup, set ISCC_PATH, or rerun with "
+            "BOOKCRAWLER_SKIP_INSTALLER=1 to keep the dist/BookCrawling bundle only."
+        )
 
     run(
         [
@@ -169,8 +203,14 @@ def main() -> int:
     prepare_staging()
     stage_playwright_browsers()
     icon_path = stage_app_icon()
-    bootstrapper_path = stage_webview2_bootstrapper()
     build_pyinstaller(icon_path)
+
+    if should_skip_installer():
+        print(f"PyInstaller bundle completed: {DIST_DIR / 'BookCrawling'}")
+        print("Installer step skipped because BOOKCRAWLER_SKIP_INSTALLER is enabled.")
+        return 0
+
+    bootstrapper_path = stage_webview2_bootstrapper()
     build_inno_setup(version, bootstrapper_path, icon_path)
     print(f"Windows installer build completed: {DIST_DIR / 'installer'}")
     return 0
