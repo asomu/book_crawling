@@ -9,7 +9,7 @@ import sys
 import urllib.request
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -18,7 +18,10 @@ DIST_DIR = PROJECT_ROOT / "dist"
 SPEC_PATH = PROJECT_ROOT / "packaging" / "windows" / "book_crawling.spec"
 ISS_PATH = PROJECT_ROOT / "packaging" / "windows" / "book_crawling.iss"
 WEBVIEW2_BOOTSTRAPPER_URL = "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
-ICON_SOURCE_PATH = PROJECT_ROOT / "legacy" / "build" / "book_icon.png"
+ICON_SOURCE_CANDIDATES = [
+    PROJECT_ROOT / "legacy" / "build" / "book_icon.png",
+    PROJECT_ROOT / "legacy" / "build" / "book.ico",
+]
 
 
 def run(command: list[str], *, env: dict[str, str] | None = None) -> None:
@@ -72,18 +75,69 @@ def stage_webview2_bootstrapper() -> Path:
 
 
 def stage_app_icon() -> Path:
-    if not ICON_SOURCE_PATH.exists():
-        raise RuntimeError(f"App icon source is missing: {ICON_SOURCE_PATH}")
-
     destination = STAGING_DIR / "book.ico"
-    with Image.open(ICON_SOURCE_PATH) as source:
-        icon = source.convert("RGBA")
-        icon.save(
-            destination,
-            format="ICO",
-            sizes=[(256, 256), (128, 128), (64, 64), (48, 48), (32, 32), (16, 16)],
-        )
+    source_path = next((path for path in ICON_SOURCE_CANDIDATES if path.exists()), None)
+    if source_path:
+        with Image.open(source_path) as source:
+            icon = source.convert("RGBA")
+    else:
+        icon = generate_fallback_icon()
+
+    icon.save(
+        destination,
+        format="ICO",
+        sizes=[(256, 256), (128, 128), (64, 64), (48, 48), (32, 32), (16, 16)],
+    )
     return destination
+
+
+def generate_fallback_icon(size: int = 512) -> Image.Image:
+    image = Image.new("RGBA", (size, size), (246, 241, 231, 255))
+    draw = ImageDraw.Draw(image)
+
+    margin = int(size * 0.16)
+    cover = [margin, margin, size - margin, size - margin]
+    draw.rounded_rectangle(cover, radius=int(size * 0.08), fill=(44, 78, 126, 255))
+
+    page_margin = int(size * 0.08)
+    pages = [
+        cover[0] + page_margin,
+        cover[1] + page_margin,
+        cover[2] - page_margin,
+        cover[3] - page_margin,
+    ]
+    draw.rounded_rectangle(pages, radius=int(size * 0.05), fill=(252, 250, 245, 255))
+
+    spine_x = int(size * 0.42)
+    draw.rectangle(
+        [spine_x, pages[1] + int(size * 0.02), spine_x + int(size * 0.035), pages[3] - int(size * 0.02)],
+        fill=(210, 182, 110, 255),
+    )
+    draw.line(
+        [pages[0] + int(size * 0.07), int(size * 0.34), pages[2] - int(size * 0.07), int(size * 0.34)],
+        fill=(44, 78, 126, 180),
+        width=max(4, int(size * 0.012)),
+    )
+    draw.line(
+        [pages[0] + int(size * 0.07), int(size * 0.48), pages[2] - int(size * 0.12), int(size * 0.48)],
+        fill=(44, 78, 126, 160),
+        width=max(4, int(size * 0.012)),
+    )
+    draw.line(
+        [pages[0] + int(size * 0.07), int(size * 0.62), pages[2] - int(size * 0.18), int(size * 0.62)],
+        fill=(44, 78, 126, 140),
+        width=max(4, int(size * 0.012)),
+    )
+    draw.ellipse(
+        [
+            size - int(size * 0.23),
+            size - int(size * 0.23),
+            size - int(size * 0.08),
+            size - int(size * 0.08),
+        ],
+        fill=(205, 93, 67, 255),
+    )
+    return image
 
 
 def build_pyinstaller(icon_path: Path) -> None:
