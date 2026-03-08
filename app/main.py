@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import logging
+import sys
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -15,6 +17,13 @@ from app.worker.processor import CrawlProcessor
 from app.worker.queue import CrawlWorker
 
 
+def build_log_handlers(log_file: Path) -> list[logging.Handler]:
+    handlers: list[logging.Handler] = [logging.FileHandler(log_file, encoding="utf-8")]
+    if sys.stderr is not None and hasattr(sys.stderr, "write"):
+        handlers.append(logging.StreamHandler(sys.stderr))
+    return handlers
+
+
 def configure_logging() -> None:
     settings = get_settings()
     settings.logs_dir.mkdir(parents=True, exist_ok=True)
@@ -22,10 +31,8 @@ def configure_logging() -> None:
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
-        handlers=[
-            logging.FileHandler(log_file, encoding="utf-8"),
-            logging.StreamHandler(),
-        ],
+        handlers=build_log_handlers(log_file),
+        force=True,
     )
 
 

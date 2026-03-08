@@ -1,9 +1,11 @@
+import logging
 import socket
 from pathlib import Path
 
 import httpx
 import pytest
 
+from app import main as app_main
 from app.launcher import DesktopServer, SingleInstanceError, SingleInstanceLock, choose_free_port
 
 
@@ -39,3 +41,12 @@ def test_desktop_server_reports_health():
         assert response.json()["ok"] is True
     finally:
         server.stop()
+
+
+def test_build_log_handlers_skips_missing_stderr(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(app_main.sys, "stderr", None)
+
+    handlers = app_main.build_log_handlers(tmp_path / "app.log")
+
+    assert len(handlers) == 1
+    assert isinstance(handlers[0], logging.FileHandler)

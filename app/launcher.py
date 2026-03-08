@@ -7,6 +7,7 @@ import socket
 import sys
 import threading
 import time
+import traceback
 from pathlib import Path
 
 import httpx
@@ -107,6 +108,7 @@ class DesktopServer:
             port=self.port,
             log_level="info",
             access_log=False,
+            log_config=None,
         )
         self._server = BackgroundUvicornServer(config=config)
         self._thread = threading.Thread(target=self._server.run, name="desktop-server", daemon=True)
@@ -137,13 +139,18 @@ class DesktopServer:
             self._thread.join(timeout=5)
 
 
+def _safe_stderr_print(message: str) -> None:
+    if sys.stderr is not None and hasattr(sys.stderr, "write"):
+        print(message, file=sys.stderr)
+
+
 def _show_message(title: str, message: str) -> None:
     if sys.platform == "win32":
         import ctypes
 
         ctypes.windll.user32.MessageBoxW(None, message, title, 0x10)
         return
-    print(f"{title}: {message}", file=sys.stderr)
+    _safe_stderr_print(f"{title}: {message}")
 
 
 def run_desktop() -> int:
@@ -156,7 +163,7 @@ def run_desktop() -> int:
         lock.acquire()
     except SingleInstanceError as exc:
         _show_message(settings.app_name, "이미 실행 중입니다. 기존 창을 확인하세요.")
-        print(str(exc), file=sys.stderr)
+        _safe_stderr_print(str(exc))
         return 1
 
     try:
@@ -170,6 +177,10 @@ def run_desktop() -> int:
         webview.create_window(settings.app_name, server.base_url, min_size=(1240, 860))
         webview.start(gui="edgechromium", debug=settings.environment != "production")
         return 0
+    except Exception as exc:
+        _show_message(settings.app_name, f"앱 실행 중 오류가 발생했습니다.\n{exc}")
+        _safe_stderr_print(traceback.format_exc())
+        return 1
     finally:
         server.stop()
         lock.release()
