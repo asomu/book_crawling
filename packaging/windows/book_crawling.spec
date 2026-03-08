@@ -26,6 +26,7 @@ def collect_tree(source: Path, destination: str):
 
 
 datas = collect_data_files("playwright", include_py_files=True)
+datas += collect_data_files("webview", include_py_files=True)
 datas += collect_tree(project_root / "app" / "web" / "templates", "app/web/templates")
 datas += collect_tree(project_root / "app" / "web" / "static", "app/web/static")
 datas += collect_tree(project_root / "resource", "resource")
@@ -34,6 +35,7 @@ datas += collect_tree(staging_root / "ms-playwright", "ms-playwright")
 datas.append((str(project_root / "alembic.ini"), "."))
 
 hiddenimports = []
+hiddenimports.append("webview")
 hiddenimports += collect_submodules("playwright")
 hiddenimports += collect_submodules("uvicorn")
 hiddenimports += collect_submodules("webview")

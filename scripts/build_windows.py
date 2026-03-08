@@ -47,6 +47,22 @@ def ensure_windows() -> None:
         raise RuntimeError("Windows packaging must be run on Windows.")
 
 
+def ensure_packaging_dependencies() -> None:
+    missing: list[str] = []
+    for module_name in ("PyInstaller", "webview"):
+        try:
+            __import__(module_name)
+        except ImportError:
+            missing.append(module_name)
+
+    if missing:
+        raise RuntimeError(
+            "Missing Windows packaging dependencies: "
+            + ", ".join(missing)
+            + '. Run `pip install -e ".[dev,windows]"` and rebuild.'
+        )
+
+
 def prepare_staging() -> None:
     shutil.rmtree(STAGING_DIR, ignore_errors=True)
     STAGING_DIR.mkdir(parents=True, exist_ok=True)
@@ -199,6 +215,7 @@ def build_inno_setup(version: str, bootstrapper_path: Path, icon_path: Path) -> 
 
 def main() -> int:
     ensure_windows()
+    ensure_packaging_dependencies()
     version = read_version()
     prepare_staging()
     stage_playwright_browsers()

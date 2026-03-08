@@ -172,7 +172,9 @@ def run_desktop() -> int:
         try:
             import webview
         except ImportError as exc:  # pragma: no cover - depends on optional runtime extra
-            raise RuntimeError("pywebview is not installed. Install the windows extra before packaging.") from exc
+            raise RuntimeError(
+                f"pywebview import failed: {exc}. Rebuild after `pip install -e \".[dev,windows]\"`."
+            ) from exc
 
         webview.create_window(settings.app_name, server.base_url, min_size=(1240, 860))
         webview.start(gui="edgechromium", debug=settings.environment != "production")

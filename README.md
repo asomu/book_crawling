@@ -114,6 +114,8 @@ pip install -e ".[dev,windows]"
 python scripts/build_windows.py
 ```
 
+빌드 전에는 Windows extra가 실제로 설치되어 있어야 합니다. 스크립트는 `PyInstaller`와 `pywebview`(`webview`)가 없으면 초기에 바로 중단합니다.
+
 Inno Setup이 설치되어 있지 않으면 설치 프로그램 생성 단계가 실패합니다. 이 경우:
 
 - Inno Setup 6을 설치해서 installer까지 생성
