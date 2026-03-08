@@ -20,9 +20,36 @@ class SingleInstanceError(RuntimeError):
     pass
 
 
+def _windows_pid_is_running(pid: int, kernel32=None) -> bool:
+    import ctypes
+
+    PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+    STILL_ACTIVE = 259
+
+    if kernel32 is None:
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+
+    handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+    if not handle:
+        return ctypes.get_last_error() == 5
+
+    try:
+        exit_code = ctypes.c_ulong()
+        if not kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code)):
+            return ctypes.get_last_error() == 5
+        return exit_code.value == STILL_ACTIVE
+    finally:
+        kernel32.CloseHandle(handle)
+
+
 def _pid_is_running(pid: int) -> bool:
     if pid <= 0:
         return False
+    if sys.platform == "win32":
+        try:
+            return _windows_pid_is_running(pid)
+        except Exception:
+            return False
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
@@ -176,8 +203,12 @@ def run_desktop() -> int:
                 f"pywebview import failed: {exc}. Rebuild after `pip install -e \".[dev,windows]\"`."
             ) from exc
 
+        webview.settings["ALLOW_DOWNLOADS"] = True
         webview.create_window(settings.app_name, server.base_url, min_size=(1240, 860))
-        webview.start(gui="edgechromium", debug=settings.environment != "production")
+        webview.start(
+            gui="edgechromium",
+            debug=settings.environment != "production" and not getattr(sys, "frozen", False),
+        )
         return 0
     except Exception as exc:
         _show_message(settings.app_name, f"앱 실행 중 오류가 발생했습니다.\n{exc}")

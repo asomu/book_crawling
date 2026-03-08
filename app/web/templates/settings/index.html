@@ -17,7 +17,10 @@
   <div class="panel">
     <div class="eyebrow">credentials</div>
     <h2 class="panel-title">Yes24 자격증명</h2>
-    <p class="muted mb-4">자격증명은 선택 사항입니다. 기본 수집은 익명 브라우징으로 진행되고, Yes24 성인인증이 필요한 도서만 `adult_verification_required`로 실패 처리됩니다. 상태 점검은 저장된 계정의 로그인 가능 여부만 확인합니다.</p>
+    <p class="muted mb-4">자격증명은 선택 사항입니다. 기본 수집은 익명 브라우징으로 진행되고, Yes24 성인인증이 필요한 도서만 `adult_verification_required`로 실패 처리됩니다. 상태 점검은 저장된 계정의 로그인 가능 여부만 확인합니다. 둘 다 비워 두고 저장하면 익명 모드로 돌아갑니다.</p>
+    {% if credential and credential.username %}
+    <div class="message-banner mb-4">저장된 계정: {{ credential.username }}. 비밀번호는 보안상 다시 표시하지 않으며, 상태 점검과 작업 실행에서 저장된 자격증명을 자동으로 사용합니다.</div>
+    {% endif %}
     <form method="post" action="/settings/credentials" class="form-stack">
       <div>
         <label class="field-label" for="username">Username</label>

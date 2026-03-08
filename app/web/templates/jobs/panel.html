@@ -8,7 +8,7 @@
     <div class="btn-row">
       <span class="badge {{ job.status }}">{{ job.status }}</span>
       {% if job.status in ["success", "partial_success"] and job_counts["success"] > 0 %}
-      <a class="btn-subtle" href="/jobs/{{ job.id }}/download">결과 ZIP 다운로드</a>
+      <a class="btn-subtle" href="/jobs/{{ job.id }}/download">결과 ZIP 다운로드 (이미지 + CSV)</a>
       {% endif %}
       <form method="post" action="/jobs/{{ job.id }}/retry-failed">
         <button class="btn-main" type="submit">실패 항목 재시도</button>

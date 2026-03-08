@@ -1,4 +1,7 @@
+from io import BytesIO
 from pathlib import Path
+from urllib.parse import unquote_plus
+from zipfile import ZipFile
 
 from fastapi.testclient import TestClient
 from PIL import Image
@@ -81,6 +84,15 @@ def test_download_single_book_assets_returns_zip():
         assert response.headers["content-type"] == "application/zip"
         assert response.content[:2] == b"PK"
 
+    with ZipFile(BytesIO(response.content)) as archive:
+        names = sorted(archive.namelist())
+        assert "books.csv" in names
+        assert f"{isbn}/cover.jpg" in names
+        csv_text = archive.read("books.csv").decode("utf-8-sig")
+        assert "isbn,site,title,author,publisher" in csv_text
+        assert isbn in csv_text
+        assert "ZIP 테스트" in csv_text
+
 
 def test_download_selected_books_returns_zip():
     settings = get_settings()
@@ -129,6 +141,14 @@ def test_download_selected_books_returns_zip():
         assert response.headers["content-type"] == "application/zip"
         assert response.content[:2] == b"PK"
 
+    with ZipFile(BytesIO(response.content)) as archive:
+        names = sorted(archive.namelist())
+        assert "books.csv" in names
+        assert f"{isbn}/cover.jpg" in names
+        csv_text = archive.read("books.csv").decode("utf-8-sig")
+        assert isbn in csv_text
+        assert "선택 다운로드 테스트" in csv_text
+
 
 def test_settings_healthcheck_without_credentials_reports_anonymous_mode():
     with SessionLocal() as session:
@@ -139,6 +159,44 @@ def test_settings_healthcheck_without_credentials_reports_anonymous_mode():
         response = client.post("/settings/healthcheck")
         assert response.status_code == 200
         assert "익명 수집으로 계속 동작합니다" in response.text
+
+
+def test_save_credentials_empty_submission_redirects_without_422():
+    with SessionLocal() as session:
+        session.execute(delete(SiteCredential).where(SiteCredential.site == Site.YES24.value))
+        session.commit()
+
+    with TestClient(app, raise_server_exceptions=False) as client:
+        response = client.post(
+            "/settings/credentials",
+            data={"username": "", "password": ""},
+            follow_redirects=False,
+        )
+
+    assert response.status_code == 303
+    assert "익명 수집으로 계속 동작합니다." in unquote_plus(response.headers["location"])
+
+    with SessionLocal() as session:
+        assert session.get(SiteCredential, Site.YES24.value) is None
+
+
+def test_save_credentials_rejects_partial_input():
+    with SessionLocal() as session:
+        session.execute(delete(SiteCredential).where(SiteCredential.site == Site.YES24.value))
+        session.commit()
+
+    with TestClient(app, raise_server_exceptions=False) as client:
+        response = client.post(
+            "/settings/credentials",
+            data={"username": "demo", "password": ""},
+            follow_redirects=False,
+        )
+
+    assert response.status_code == 303
+    assert "Username과 password를 함께 입력하거나 둘 다 비워 두세요." in unquote_plus(response.headers["location"])
+
+    with SessionLocal() as session:
+        assert session.get(SiteCredential, Site.YES24.value) is None
 
 
 def test_healthz_reports_ready():

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.config.settings import AppSettings
 from app.domain.enums import AssetKind, EventLevel, JobItemStatus, JobStatus, Site
-from app.domain.errors import CrawlError, DetailPageNotFoundError, ImageDownloadFailedError, StorageFailedError
+from app.domain.errors import CrawlError, DetailPageNotFoundError, ImageDownloadFailedError, LoginFailedError, StorageFailedError
 from app.domain.schemas import StoredAsset
 from app.domain.services.credentials import CredentialCipher
 from app.infrastructure.crawlers.yes24.adapter import Yes24CrawlerAdapter
@@ -36,6 +36,28 @@ class CrawlProcessor:
 
         try:
             with Yes24CrawlerAdapter(self.settings, self.storage, username, password) as adapter:
+                if username and password:
+                    try:
+                        adapter.login()
+                        self._event(
+                            session,
+                            job,
+                            None,
+                            EventLevel.INFO,
+                            "Stored Yes24 credentials were applied.",
+                            {"authenticated": True},
+                        )
+                    except LoginFailedError as exc:
+                        self._event(
+                            session,
+                            job,
+                            None,
+                            EventLevel.WARNING,
+                            f"Stored Yes24 credentials could not be applied: {exc.message}",
+                            {"authenticated": False, "code": exc.code},
+                        )
+                    session.commit()
+
                 items = (
                     session.execute(
                         select(CrawlJobItem)

@@ -106,9 +106,19 @@ class AppSettings(BaseSettings):
             path.mkdir(parents=True, exist_ok=True)
 
     def configure_process_environment(self) -> None:
-        bundled_browser_dir = self.bundle_dir / "ms-playwright"
-        if bundled_browser_dir.exists() and "PLAYWRIGHT_BROWSERS_PATH" not in os.environ:
+        bundled_browser_dir = self._resolve_bundled_browser_dir()
+        if bundled_browser_dir is not None and "PLAYWRIGHT_BROWSERS_PATH" not in os.environ:
             os.environ["PLAYWRIGHT_BROWSERS_PATH"] = bundled_browser_dir.as_posix()
+
+    def _resolve_bundled_browser_dir(self) -> Optional[Path]:
+        candidates = (
+            self.bundle_dir / "playwright" / "driver" / "package" / ".local-browsers",
+            self.bundle_dir / "ms-playwright",
+        )
+        for candidate in candidates:
+            if candidate.exists():
+                return candidate
+        return None
 
     @property
     def runtime_root(self) -> Path:

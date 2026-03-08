@@ -23,8 +23,10 @@ ICON_SOURCE_CANDIDATES = [
     PROJECT_ROOT / "legacy" / "build" / "book.ico",
 ]
 COMMON_INNO_SETUP_PATHS = [
+    Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData" / "Local"))) / "Programs" / "Inno Setup 6" / "ISCC.exe",
     Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")) / "Inno Setup 6" / "ISCC.exe",
     Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Inno Setup 6" / "ISCC.exe",
+    Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData" / "Local"))) / "Programs" / "Inno Setup 5" / "ISCC.exe",
     Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")) / "Inno Setup 5" / "ISCC.exe",
     Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Inno Setup 5" / "ISCC.exe",
 ]
@@ -56,10 +58,14 @@ def ensure_packaging_dependencies() -> None:
             missing.append(module_name)
 
     if missing:
+        missing_display = ", ".join(missing)
         raise RuntimeError(
             "Missing Windows packaging dependencies: "
-            + ", ".join(missing)
-            + '. Run `pip install -e ".[dev,windows]"` and rebuild.'
+            + missing_display
+            + '. Install the Windows extra first, then rebuild. '
+            + 'For uv use `uv sync --extra dev --extra windows` or '
+            + '`uv run --extra dev --extra windows scripts/build_windows.py`. '
+            + 'For pip use `pip install -e ".[dev,windows]"`.'
         )
 
 
@@ -68,20 +74,37 @@ def prepare_staging() -> None:
     STAGING_DIR.mkdir(parents=True, exist_ok=True)
 
 
+def resolve_local_playwright_browser_root(playwright_package_root: Path | None = None) -> Path:
+    if playwright_package_root is None:
+        import playwright
+
+        playwright_package_root = Path(playwright.__file__).resolve().parent
+
+    browser_root = playwright_package_root / "driver" / "package" / ".local-browsers"
+    if not browser_root.exists():
+        raise RuntimeError(f"Expected local Playwright browsers at {browser_root}, but the directory is missing.")
+
+    required_prefixes = ("chromium-", "chromium_headless_shell-")
+    missing_prefixes = [
+        prefix
+        for prefix in required_prefixes
+        if not any(path.is_dir() and path.name.startswith(prefix) for path in browser_root.iterdir())
+    ]
+    if missing_prefixes:
+        missing_display = ", ".join(missing_prefixes)
+        raise RuntimeError(
+            "Playwright browser bundle is incomplete at "
+            + str(browser_root)
+            + f". Missing expected browser directories: {missing_display}."
+        )
+    return browser_root
+
+
 def install_bundled_chromium() -> Path:
     env = os.environ.copy()
     env["PLAYWRIGHT_BROWSERS_PATH"] = "0"
     run([sys.executable, "-m", "playwright", "install", "chromium"], env=env)
-
-    from playwright.sync_api import sync_playwright
-
-    with sync_playwright() as playwright:
-        executable_path = Path(playwright.chromium.executable_path)
-
-    for candidate in executable_path.parents:
-        if candidate.name in {"ms-playwright", ".local-browsers"}:
-            return candidate
-    raise RuntimeError(f"Could not locate bundled Playwright browsers from {executable_path}")
+    return resolve_local_playwright_browser_root()
 
 
 def stage_playwright_browsers() -> None:
@@ -235,3 +258,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

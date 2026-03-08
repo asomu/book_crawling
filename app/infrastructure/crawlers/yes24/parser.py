@@ -41,7 +41,14 @@ def extract_search_candidate_urls(html: str, limit: int = 5) -> list[str]:
 
 
 def has_adult_gate(html: str) -> bool:
-    return any(marker in html for marker in ADULT_GATE_MARKERS)
+    return any(marker in _visible_text(html) for marker in ADULT_GATE_MARKERS)
+
+
+def looks_like_search_redirect_page(html: str, current_url: str) -> bool:
+    soup = BeautifulSoup(html, "html.parser")
+    title = soup.title.get_text(" ", strip=True) if soup.title else ""
+    has_results = bool(soup.select("#yesSchList li"))
+    return "Main/default.aspx" in current_url and title == "예스24" and not has_results
 
 
 def parse_detail_page(html: str, product_url: str) -> FetchBookResult:
@@ -184,3 +191,10 @@ def _first_valid_image_url(images: Iterable) -> str:
             continue
         return url
     return ""
+
+
+def _visible_text(html: str) -> str:
+    soup = BeautifulSoup(html, "html.parser")
+    for tag in soup(["script", "style", "noscript"]):
+        tag.decompose()
+    return soup.get_text(" ", strip=True)

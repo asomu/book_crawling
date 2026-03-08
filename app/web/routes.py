@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import csv
 import os
 import subprocess
 import sys
-from io import BytesIO
+from io import BytesIO, StringIO
 from pathlib import Path
 from typing import Iterable, Optional
+from urllib.parse import quote_plus
 from zipfile import ZIP_DEFLATED, ZipFile
 
 from fastapi import APIRouter, Form, HTTPException, Request
@@ -113,19 +115,68 @@ def _asset_absolute_path(file_path: str) -> Path:
     return path
 
 
-def _book_archive_members(books: Iterable[Book]) -> list[tuple[str, Path]]:
-    members: list[tuple[str, Path]] = []
+def _book_metadata_csv(books: Iterable[Book]) -> bytes:
+    fieldnames = [
+        "isbn",
+        "site",
+        "title",
+        "author",
+        "publisher",
+        "category",
+        "price_original",
+        "price_sale",
+        "published_date",
+        "page_count",
+        "book_size",
+        "product_url",
+        "last_crawled_at",
+        "asset_count",
+        "description",
+    ]
+    buffer = StringIO(newline="")
+    writer = csv.DictWriter(buffer, fieldnames=fieldnames)
+    writer.writeheader()
     for book in books:
+        writer.writerow(
+            {
+                "isbn": book.isbn,
+                "site": book.site,
+                "title": book.title,
+                "author": book.author,
+                "publisher": book.publisher,
+                "category": book.category,
+                "price_original": book.price_original,
+                "price_sale": book.price_sale,
+                "published_date": book.published_date,
+                "page_count": book.page_count,
+                "book_size": book.book_size,
+                "product_url": book.product_url,
+                "last_crawled_at": _format_dt(book.last_crawled_at),
+                "asset_count": len(book.assets),
+                "description": book.description,
+            }
+        )
+    return buffer.getvalue().encode("utf-8-sig")
+
+
+def _book_archive_members(books: Iterable[Book]) -> list[tuple[str, Path | bytes]]:
+    book_list = list(books)
+    asset_members: list[tuple[str, Path | bytes]] = []
+    for book in book_list:
         for asset in sorted(book.assets, key=lambda item: item.variant):
             path = _asset_absolute_path(asset.file_path)
             if not path.exists():
                 continue
-            members.append((f"{book.isbn}/{asset.variant}.jpg", path))
-    return members
+            asset_members.append((f"{book.isbn}/{asset.variant}.jpg", path))
+
+    if not asset_members:
+        return []
+
+    return [("books.csv", _book_metadata_csv(book_list)), *asset_members]
 
 
-def _log_archive_members() -> list[tuple[str, Path]]:
-    members: list[tuple[str, Path]] = []
+def _log_archive_members() -> list[tuple[str, Path | bytes]]:
+    members: list[tuple[str, Path | bytes]] = []
     if not settings.logs_dir.exists():
         return members
 
@@ -135,14 +186,17 @@ def _log_archive_members() -> list[tuple[str, Path]]:
     return members
 
 
-def _zip_response(members: list[tuple[str, Path]], filename: str) -> StreamingResponse:
+def _zip_response(members: list[tuple[str, Path | bytes]], filename: str) -> StreamingResponse:
     if not members:
         raise HTTPException(status_code=404, detail="No generated assets were found for download.")
 
     buffer = BytesIO()
     with ZipFile(buffer, "w", ZIP_DEFLATED) as archive:
-        for arcname, path in members:
-            archive.write(path, arcname=arcname)
+        for arcname, source in members:
+            if isinstance(source, Path):
+                archive.write(source, arcname=arcname)
+            else:
+                archive.writestr(arcname, source)
     buffer.seek(0)
 
     return StreamingResponse(
@@ -221,6 +275,10 @@ def _open_directory(path: Path) -> None:
         return
     command = ["open", path.as_posix()] if sys.platform == "darwin" else ["xdg-open", path.as_posix()]
     subprocess.Popen(command)
+
+
+def _settings_redirect(message: str) -> RedirectResponse:
+    return RedirectResponse(url=f"/settings?message={quote_plus(message)}", status_code=303)
 
 
 @router.get("/healthz")
@@ -536,19 +594,32 @@ def settings_page(request: Request, message: str = ""):
 
 @router.post("/settings/credentials")
 def save_credentials(
-    username: str = Form(...),
-    password: str = Form(...),
+    username: str = Form(""),
+    password: str = Form(""),
 ):
-    cipher = CredentialCipher(settings)
+    username = username.strip()
+    password = password.strip()
+
     with SessionLocal() as session:
         credential = session.get(SiteCredential, Site.YES24.value)
+
+        if not username and not password:
+            if credential is not None:
+                session.delete(credential)
+                session.commit()
+            return _settings_redirect("저장된 로그인 정보가 없습니다. 익명 수집으로 계속 동작합니다.")
+
+        if not username or not password:
+            return _settings_redirect("Username과 password를 함께 입력하거나 둘 다 비워 두세요.")
+
+        cipher = CredentialCipher(settings)
         if credential is None:
             credential = SiteCredential(site=Site.YES24.value)
             session.add(credential)
-        credential.username = username.strip()
-        credential.password_encrypted = cipher.encrypt(password.strip())
+        credential.username = username
+        credential.password_encrypted = cipher.encrypt(password)
         session.commit()
-    return RedirectResponse(url="/settings?message=Yes24+자격증명을+저장했습니다.", status_code=303)
+    return _settings_redirect("Yes24 자격증명을 저장했습니다.")
 
 
 @router.post("/settings/healthcheck", response_class=HTMLResponse)

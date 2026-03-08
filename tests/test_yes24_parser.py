@@ -1,7 +1,12 @@
 from pathlib import Path
 
 from app.domain.errors import AdultVerificationRequiredError
-from app.infrastructure.crawlers.yes24.parser import extract_search_candidate_urls, parse_detail_page
+from app.infrastructure.crawlers.yes24.parser import (
+    extract_search_candidate_urls,
+    has_adult_gate,
+    looks_like_search_redirect_page,
+    parse_detail_page,
+)
 
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "html"
@@ -37,6 +42,25 @@ def test_parse_detail_page_detects_adult_gate():
         raise AssertionError("Expected AdultVerificationRequiredError")
     except AdultVerificationRequiredError as exc:
         assert exc.code == "adult_verification_required"
+
+
+def test_has_adult_gate_ignores_script_only_markers():
+    html = """
+    <html>
+      <body>
+        <script>const label = "19세 이상 상품";</script>
+        <div>일반 도서 페이지</div>
+      </body>
+    </html>
+    """
+
+    assert has_adult_gate(html) is False
+
+
+def test_looks_like_search_redirect_page_detects_yes24_main_redirect():
+    html = "<html><head><title>예스24</title></head><body><div>메인 페이지</div></body></html>"
+
+    assert looks_like_search_redirect_page(html, "https://www.yes24.com/Main/default.aspx") is True
 
 
 def test_parse_detail_page_prefers_actual_detail_section_over_duplicate_infoset_id():

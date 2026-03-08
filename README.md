@@ -68,11 +68,11 @@ make smoke
 
 ## 운영 흐름
 
-1. 필요하면 `/settings`에 Yes24 자격증명을 저장합니다. 저장하지 않아도 비성인 도서는 익명 수집이 가능합니다.
+1. 필요하면 `/settings`에 Yes24 자격증명을 저장합니다. 저장한 비밀번호는 다시 화면에 표시하지 않지만 상태 점검과 작업 실행에서 자동으로 사용됩니다. 저장하지 않아도 비성인 도서는 익명 수집이 가능합니다.
 2. 대시보드에서 ISBN 목록으로 작업을 생성합니다.
 3. worker가 pending job을 순차 처리합니다.
-4. `/jobs/{id}`에서 항목별 성공/실패와 로그를 확인하고, 성공 결과는 ZIP으로 즉시 내려받을 수 있습니다.
-5. `/books`에서 누적된 도서 데이터와 생성 이미지를 검색하고, 선택 항목만 묶어서 ZIP으로 내려받을 수 있습니다.
+4. `/jobs/{id}`에서 항목별 성공/실패와 로그를 확인하고, 성공 결과는 이미지와 `books.csv`가 함께 담긴 ZIP으로 즉시 내려받을 수 있습니다.
+5. `/books`에서 누적된 도서 데이터와 생성 이미지를 검색하고, 선택 항목만 묶어서 이미지와 `books.csv`가 함께 담긴 ZIP으로 내려받을 수 있습니다.
 
 ## Directory Guide
 
@@ -102,6 +102,7 @@ pytest
 
 - v1 범위는 Yes24만 운영 지원합니다.
 - 성인인증이 필요한 도서는 익명 수집 대상에서 제외되며 `adult_verification_required`로 기록됩니다.
+- Yes24 ISBN 검색은 먼저 홈페이지 세션을 워밍업한 뒤 시도하고, 메인 페이지로 리다이렉트되면 저장된 자격증명으로 한 번 더 재시도합니다.
 - 자동 배치, 다중 사이트 동시 운영, 자동 업데이트는 후속 단계입니다.
 - 기존 스크립트 기반 구현은 `legacy/` 아래에 보관했습니다.
 
@@ -110,13 +111,20 @@ pytest
 Windows 패키징은 Windows PC/VM에서만 수행합니다.
 
 ```bash
+uv sync --extra dev --extra windows
+uv run --extra dev --extra windows scripts/build_windows.py
+```
+
+또는 `pip` 환경이라면:
+
+```bash
 pip install -e ".[dev,windows]"
 python scripts/build_windows.py
 ```
 
 빌드 전에는 Windows extra가 실제로 설치되어 있어야 합니다. 스크립트는 `PyInstaller`와 `pywebview`(`webview`)가 없으면 초기에 바로 중단합니다.
 
-Inno Setup이 설치되어 있지 않으면 설치 프로그램 생성 단계가 실패합니다. 이 경우:
+Inno Setup이 설치되어 있지 않으면 설치 프로그램 생성 단계가 실패합니다. `winget`으로 설치한 사용자 범위 Inno Setup (`%LOCALAPPDATA%\\Programs\\Inno Setup 6`) 도 자동으로 인식합니다. 그 외의 경우:
 
 - Inno Setup 6을 설치해서 installer까지 생성
 - 또는 `BOOKCRAWLER_SKIP_INSTALLER=1 python scripts/build_windows.py`로 `dist/BookCrawling/` 번들만 생성
@@ -132,3 +140,4 @@ Inno Setup이 설치되어 있지 않으면 설치 프로그램 생성 단계가
 2. WebView2 Evergreen Bootstrapper를 다운로드합니다.
 3. PyInstaller `onedir` 앱을 생성합니다.
 4. Inno Setup 설치 파일을 생성합니다.
+

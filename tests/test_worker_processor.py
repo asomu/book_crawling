@@ -24,6 +24,8 @@ def _image_bytes(size: tuple[int, int], color: tuple[int, int, int]) -> bytes:
 
 
 class FakeAdapter:
+    login_calls = 0
+
     def __init__(self, *args, **kwargs):
         self.last_snapshot_path = None
 
@@ -34,7 +36,7 @@ class FakeAdapter:
         return None
 
     def login(self):
-        raise AssertionError("login() should not be called for anonymous-compatible crawling.")
+        FakeAdapter.login_calls += 1
 
     def fetch_book(self, isbn: str) -> FetchBookResult:
         return FetchBookResult(
@@ -60,6 +62,7 @@ class FakeAdapter:
 
 
 def test_processor_marks_job_success(monkeypatch, tmp_path: Path):
+    FakeAdapter.login_calls = 0
     settings = AppSettings(
         data_dir=tmp_path / "data",
         assets_dir=tmp_path / "data" / "assets",
@@ -110,6 +113,7 @@ def test_processor_marks_job_success(monkeypatch, tmp_path: Path):
 
         item = session.execute(select(CrawlJobItem).where(CrawlJobItem.job_id == job.id)).scalar_one()
         assert item.status == JobItemStatus.SUCCESS.value
+        assert FakeAdapter.login_calls == 1
 
         book = session.get(Book, "9791130671017")
         assert book is not None
