@@ -14,3 +14,7 @@ logs/
 
 dist/
 build/
+!legacy/build/
+legacy/build/*
+!legacy/build/book.ico
+!legacy/build/book_icon.png
