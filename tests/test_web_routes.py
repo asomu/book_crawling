@@ -40,6 +40,7 @@ def test_create_job_without_isbn_redirects_back_with_message():
 def test_download_single_book_assets_returns_zip():
     settings = get_settings()
     isbn = "9999990000001"
+    title = "ZIP 테스트"
     asset_dir = settings.assets_dir / isbn
     asset_dir.mkdir(parents=True, exist_ok=True)
     asset_path = asset_dir / "cover.jpg"
@@ -54,7 +55,7 @@ def test_download_single_book_assets_returns_zip():
             book = Book(
                 isbn=isbn,
                 site="yes24",
-                title="ZIP 테스트",
+                title=title,
                 author="테스터",
                 publisher="테스트출판사",
                 description="",
@@ -87,16 +88,17 @@ def test_download_single_book_assets_returns_zip():
     with ZipFile(BytesIO(response.content)) as archive:
         names = sorted(archive.namelist())
         assert "books.csv" in names
-        assert f"{isbn}/cover.jpg" in names
+        assert f"{title}/cover.jpg" in names
         csv_text = archive.read("books.csv").decode("utf-8-sig")
         assert "isbn,site,title,author,publisher" in csv_text
         assert isbn in csv_text
-        assert "ZIP 테스트" in csv_text
+        assert title in csv_text
 
 
 def test_download_selected_books_returns_zip():
     settings = get_settings()
     isbn = "9999990000002"
+    title = "선택 다운로드 테스트"
     asset_dir = settings.assets_dir / isbn
     asset_dir.mkdir(parents=True, exist_ok=True)
     asset_path = asset_dir / "cover.jpg"
@@ -111,7 +113,7 @@ def test_download_selected_books_returns_zip():
             book = Book(
                 isbn=isbn,
                 site="yes24",
-                title="선택 다운로드 테스트",
+                title=title,
                 author="테스터",
                 publisher="테스트출판사",
                 description="",
@@ -144,10 +146,124 @@ def test_download_selected_books_returns_zip():
     with ZipFile(BytesIO(response.content)) as archive:
         names = sorted(archive.namelist())
         assert "books.csv" in names
-        assert f"{isbn}/cover.jpg" in names
+        assert f"{title}/cover.jpg" in names
         csv_text = archive.read("books.csv").decode("utf-8-sig")
         assert isbn in csv_text
-        assert "선택 다운로드 테스트" in csv_text
+        assert title in csv_text
+
+
+def test_download_selected_books_sanitizes_duplicate_title_folders():
+    settings = get_settings()
+    first_isbn = "9999990000011"
+    second_isbn = "9999990000012"
+    title = '중복/제목: 테스트'
+
+    for isbn, variant in ((first_isbn, "cover"), (second_isbn, "detail")):
+        asset_dir = settings.assets_dir / isbn
+        asset_dir.mkdir(parents=True, exist_ok=True)
+        asset_path = asset_dir / f"{variant}.jpg"
+        image = Image.new("RGB", (80, 120), (90, 110, 130))
+        image.save(asset_path, format="JPEG")
+
+        with SessionLocal() as session:
+            session.execute(delete(ImageAsset).where(ImageAsset.isbn == isbn))
+            book = session.get(Book, isbn)
+            if not book:
+                book = Book(
+                    isbn=isbn,
+                    site="yes24",
+                    title=title,
+                    author="테스터",
+                    publisher="테스트출판사",
+                    description="",
+                    category="테스트",
+                    price_original="10000",
+                    price_sale="9000",
+                    published_date="2024년 01월 01일",
+                    page_count="100쪽",
+                    book_size="120*180*10mm",
+                    product_url="https://example.com",
+                )
+                session.add(book)
+            else:
+                book.title = title
+            session.add(
+                ImageAsset(
+                    isbn=isbn,
+                    variant=variant,
+                    file_path=str(asset_path.relative_to(settings.user_data_dir)),
+                    width=80,
+                    height=120,
+                )
+            )
+            session.commit()
+
+    with TestClient(app, raise_server_exceptions=False) as client:
+        response = client.post("/books/download", data={"isbns": [first_isbn, second_isbn]})
+        assert response.status_code == 200
+
+    with ZipFile(BytesIO(response.content)) as archive:
+        names = sorted(archive.namelist())
+        assert "중복_제목_ 테스트/cover.jpg" in names
+        assert f"중복_제목_ 테스트 ({second_isbn})/detail.jpg" in names
+
+
+def test_download_selected_books_keeps_duplicate_long_titles_unique():
+    settings = get_settings()
+    first_isbn = "9999990000021"
+    second_isbn = "9999990000022"
+    title = "아주긴제목" * 30
+
+    for isbn in (first_isbn, second_isbn):
+        asset_dir = settings.assets_dir / isbn
+        asset_dir.mkdir(parents=True, exist_ok=True)
+        asset_path = asset_dir / "cover.jpg"
+        image = Image.new("RGB", (90, 140), (70, 90, 150))
+        image.save(asset_path, format="JPEG")
+
+        with SessionLocal() as session:
+            session.execute(delete(ImageAsset).where(ImageAsset.isbn == isbn))
+            book = session.get(Book, isbn)
+            if not book:
+                book = Book(
+                    isbn=isbn,
+                    site="yes24",
+                    title=title,
+                    author="테스터",
+                    publisher="테스트출판사",
+                    description="",
+                    category="테스트",
+                    price_original="10000",
+                    price_sale="9000",
+                    published_date="2024년 01월 01일",
+                    page_count="100쪽",
+                    book_size="120*180*10mm",
+                    product_url="https://example.com",
+                )
+                session.add(book)
+            else:
+                book.title = title
+            session.add(
+                ImageAsset(
+                    isbn=isbn,
+                    variant="cover",
+                    file_path=str(asset_path.relative_to(settings.user_data_dir)),
+                    width=90,
+                    height=140,
+                )
+            )
+            session.commit()
+
+    with TestClient(app, raise_server_exceptions=False) as client:
+        response = client.post("/books/download", data={"isbns": [first_isbn, second_isbn]})
+        assert response.status_code == 200
+
+    with ZipFile(BytesIO(response.content)) as archive:
+        names = sorted(archive.namelist())
+        cover_names = [name for name in names if name.endswith("/cover.jpg")]
+        assert len(cover_names) == 2
+        assert len({name.split("/")[0] for name in cover_names}) == 2
+        assert any(first_isbn in name or second_isbn in name for name in cover_names)
 
 
 def test_settings_healthcheck_without_credentials_reports_anonymous_mode():

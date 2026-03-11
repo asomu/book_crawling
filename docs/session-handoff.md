@@ -10,7 +10,7 @@
 - Yes24 중복 `infoset_chYes` DOM에서도 실제 상세 이미지를 선택하도록 파서 보정
 - Yes24 ISBN 해석 흐름을 `홈페이지 워밍업 -> 검색 -> 메인 리다이렉트면 로그인 재시도 -> 상세 진입`으로 분리
 - 설정 페이지에서 자격증명을 비우면 익명 모드로 되돌리고, 저장된 자격증명은 작업 실행 시 자동으로 적용
-- 책 다운로드 ZIP에 이미지와 함께 `books.csv` 메타데이터 파일을 포함
+- 책 다운로드 ZIP에 이미지와 함께 `books.csv` 메타데이터 파일을 포함하고, 내부 폴더명은 ISBN 대신 책 제목을 사용
 - Windows 패키징에서 Playwright 브라우저 번들 경로와 `winget` 설치형 Inno Setup 탐지를 보정
 - Windows 설치본의 stale `.desktop.lock` PID 검사 오류를 WinAPI 기반 단일 실행 체크로 수정
 
@@ -23,6 +23,7 @@
 - 비성인 도서는 로그인 없이 익명 수집한다.
 - Yes24 성인인증 페이지는 `adult_verification_required`로 실패 기록한다.
 - job 상세와 도서 목록에서 생성 이미지 ZIP 다운로드를 지원하고, ZIP 루트에 `books.csv`를 함께 넣는다.
+- ZIP 내부 폴더명은 책 제목 기준이며, 중복 제목은 `제목 (ISBN)`으로 구분하고 Windows 금지 문자는 `_`로 치환한다.
 - 메타데이터는 SQLite에 저장하고, 이미지 파일은 `data/assets/<isbn>/`에 저장한다.
 - 동일 ISBN 재수집 시 `books`는 upsert되고 `image_assets`는 기존 자산을 지운 뒤 최신 5종으로 교체한다.
 - Windows 설치형 배포에서는 모든 쓰기 데이터가 `%LOCALAPPDATA%\BookCrawling` 아래에 저장된다.

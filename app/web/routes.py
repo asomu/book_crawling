@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import os
+import re
 import subprocess
 import sys
 from io import BytesIO, StringIO
@@ -37,6 +38,32 @@ def _format_dt(value):
 
 
 templates.env.filters["datetime"] = _format_dt
+
+_ARCHIVE_SEGMENT_MAX_LENGTH = 120
+_WINDOWS_RESERVED_NAMES = {
+    "CON",
+    "PRN",
+    "AUX",
+    "NUL",
+    "COM1",
+    "COM2",
+    "COM3",
+    "COM4",
+    "COM5",
+    "COM6",
+    "COM7",
+    "COM8",
+    "COM9",
+    "LPT1",
+    "LPT2",
+    "LPT3",
+    "LPT4",
+    "LPT5",
+    "LPT6",
+    "LPT7",
+    "LPT8",
+    "LPT9",
+}
 
 
 def _session():
@@ -159,15 +186,55 @@ def _book_metadata_csv(books: Iterable[Book]) -> bytes:
     return buffer.getvalue().encode("utf-8-sig")
 
 
+def _sanitize_archive_segment(value: str, *, fallback: str) -> str:
+    cleaned = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", value.strip())
+    cleaned = re.sub(r"\s+", " ", cleaned).rstrip(". ")
+    if not cleaned:
+        cleaned = fallback
+    if cleaned.upper() in _WINDOWS_RESERVED_NAMES:
+        cleaned = f"{cleaned}_"
+    return cleaned or fallback
+
+
+def _archive_directory_name(base_name: str, *, suffix: str = "") -> str:
+    available = max(1, _ARCHIVE_SEGMENT_MAX_LENGTH - len(suffix))
+    truncated = base_name[:available].rstrip(". ")
+    if not truncated:
+        truncated = base_name[:available] or "book"
+    return f"{truncated}{suffix}"[:_ARCHIVE_SEGMENT_MAX_LENGTH]
+
+
+def _book_archive_directories(books: Iterable[Book]) -> dict[str, str]:
+    directories: dict[str, str] = {}
+    used_names: set[str] = set()
+
+    for book in sorted(books, key=lambda item: (item.title or "", item.isbn)):
+        base_name = _sanitize_archive_segment(book.title, fallback=book.isbn)
+        directory_name = _archive_directory_name(base_name)
+        if directory_name in used_names:
+            directory_name = _archive_directory_name(base_name, suffix=f" ({book.isbn})")
+
+        suffix = 2
+        while directory_name in used_names:
+            directory_name = _archive_directory_name(base_name, suffix=f" ({book.isbn}) {suffix}")
+            suffix += 1
+
+        directories[book.isbn] = directory_name
+        used_names.add(directory_name)
+
+    return directories
+
+
 def _book_archive_members(books: Iterable[Book]) -> list[tuple[str, Path | bytes]]:
     book_list = list(books)
     asset_members: list[tuple[str, Path | bytes]] = []
+    directory_names = _book_archive_directories(book_list)
     for book in book_list:
         for asset in sorted(book.assets, key=lambda item: item.variant):
             path = _asset_absolute_path(asset.file_path)
             if not path.exists():
                 continue
-            asset_members.append((f"{book.isbn}/{asset.variant}.jpg", path))
+            asset_members.append((f"{directory_names[book.isbn]}/{asset.variant}.jpg", path))
 
     if not asset_members:
         return []
