@@ -54,6 +54,12 @@ uvicorn app.main:app --reload
 ./scripts/smoke.sh
 ```
 
+PowerShell에서는 개발 서버를 이렇게 띄울 수 있습니다.
+
+```powershell
+.\scripts\dev.ps1
+```
+
 또는:
 
 ```bash
@@ -64,7 +70,7 @@ make test
 make smoke
 ```
 
-`./scripts/dev.sh`는 기본 포트 `8000`이 이미 사용 중이면 PID와 명령어를 보여주고 종료합니다. 다른 포트가 필요하면 `PORT=8001 ./scripts/dev.sh`처럼 실행할 수 있습니다.
+`./scripts/dev.sh`는 기본 포트 `8000`이 이미 사용 중이면 PID와 명령어를 보여주고 종료합니다. 다른 포트가 필요하면 `PORT=8001 ./scripts/dev.sh`처럼 실행할 수 있습니다. PowerShell에서는 `$env:PORT='8001'; .\scripts\dev.ps1`를 사용하면 됩니다.
 
 ## 운영 흐름
 
@@ -113,6 +119,24 @@ Windows 패키징은 Windows PC/VM에서만 수행합니다.
 ```bash
 uv sync --extra dev --extra windows
 uv run --extra dev --extra windows scripts/build_windows.py
+```
+
+PowerShell에서는 래퍼 스크립트로 같은 빌드를 실행할 수 있습니다.
+
+```powershell
+.\scripts\build_windows.ps1
+```
+
+Inno Setup이 아직 없다면 자동 설치까지 포함해서 이렇게 실행할 수 있습니다.
+
+```powershell
+.\scripts\build_windows.ps1 -InstallInnoSetup
+```
+
+설치 프로그램 없이 앱 번들만 만들고 싶다면:
+
+```powershell
+.\scripts\build_windows.ps1 -SkipInstaller
 ```
 
 또는 `pip` 환경이라면:
