@@ -123,7 +123,7 @@ class CrawlProcessor:
 
             cover_bytes = self._download_image(result.cover_image_url)
             detail_bytes = self._download_image(result.detail_image_url)
-            assets = self.image_pipeline.generate_assets(item.isbn, cover_bytes, detail_bytes)
+            assets = self.image_pipeline.generate_assets(item.isbn, result.book.title, cover_bytes, detail_bytes)
             self._upsert_book(session, result.book)
             self._replace_assets(session, item.isbn, assets)
 
@@ -183,6 +183,15 @@ class CrawlProcessor:
         existing.last_crawled_at = datetime.utcnow()
 
     def _replace_assets(self, session: Session, isbn: str, assets: list[StoredAsset]) -> None:
+        existing_assets = session.execute(select(ImageAsset).where(ImageAsset.isbn == isbn)).scalars().all()
+        new_paths = {asset.file_path for asset in assets}
+        for existing in existing_assets:
+            if existing.file_path in new_paths:
+                continue
+            path = self.storage.resolve_asset(existing.file_path)
+            if path and path.exists():
+                path.unlink()
+
         session.execute(delete(ImageAsset).where(ImageAsset.isbn == isbn))
         for asset in assets:
             session.add(

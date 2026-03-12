@@ -3,12 +3,13 @@ from __future__ import annotations
 import csv
 import os
 import re
+import shutil
 import subprocess
 import sys
 from io import BytesIO, StringIO
 from pathlib import Path
 from typing import Iterable, Optional
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urlencode
 from zipfile import ZIP_DEFLATED, ZipFile
 
 from fastapi import APIRouter, Form, HTTPException, Request
@@ -24,11 +25,13 @@ from app.domain.services.credentials import CredentialCipher
 from app.infrastructure.crawlers.yes24.adapter import Yes24CrawlerAdapter
 from app.infrastructure.db.models import Book, CrawlEvent, CrawlJob, CrawlJobItem, ImageAsset, SiteCredential
 from app.infrastructure.db.session import SessionLocal
+from app.infrastructure.storage.filesystem import FilesystemStorage
 
 
 router = APIRouter()
 settings = get_settings()
 templates = Jinja2Templates(directory=settings.template_dir.as_posix())
+filesystem_storage = FilesystemStorage(settings)
 
 
 def _format_dt(value):
@@ -40,6 +43,9 @@ def _format_dt(value):
 templates.env.filters["datetime"] = _format_dt
 
 _ARCHIVE_SEGMENT_MAX_LENGTH = 120
+_DEFAULT_BOOK_SORT = "last_crawled_at"
+_DEFAULT_BOOK_DIRECTION = "desc"
+_BOOK_SORT_FIELDS = {"isbn", "title", "author", "publisher", "assets", "last_crawled_at"}
 _WINDOWS_RESERVED_NAMES = {
     "CON",
     "PRN",
@@ -234,7 +240,8 @@ def _book_archive_members(books: Iterable[Book]) -> list[tuple[str, Path | bytes
             path = _asset_absolute_path(asset.file_path)
             if not path.exists():
                 continue
-            asset_members.append((f"{directory_names[book.isbn]}/{asset.variant}.jpg", path))
+            asset_name = filesystem_storage.asset_download_name(book.isbn, book.title, asset.file_path, asset.variant)
+            asset_members.append((f"{directory_names[book.isbn]}/{asset_name}", path))
 
     if not asset_members:
         return []
@@ -346,6 +353,77 @@ def _open_directory(path: Path) -> None:
 
 def _settings_redirect(message: str) -> RedirectResponse:
     return RedirectResponse(url=f"/settings?message={quote_plus(message)}", status_code=303)
+
+
+def _normalize_book_listing_params(q: str, sort: str, direction: str) -> tuple[str, str, str]:
+    normalized_q = q.strip()
+    normalized_sort = sort if sort in _BOOK_SORT_FIELDS else _DEFAULT_BOOK_SORT
+    normalized_direction = direction if direction in {"asc", "desc"} else _DEFAULT_BOOK_DIRECTION
+    return normalized_q, normalized_sort, normalized_direction
+
+
+def _books_url(
+    *,
+    q: str = "",
+    sort: str = _DEFAULT_BOOK_SORT,
+    direction: str = _DEFAULT_BOOK_DIRECTION,
+    message: str = "",
+) -> str:
+    normalized_q, normalized_sort, normalized_direction = _normalize_book_listing_params(q, sort, direction)
+    params: dict[str, str] = {}
+    if normalized_q:
+        params["q"] = normalized_q
+    if normalized_sort != _DEFAULT_BOOK_SORT:
+        params["sort"] = normalized_sort
+    if normalized_direction != _DEFAULT_BOOK_DIRECTION:
+        params["dir"] = normalized_direction
+    if message:
+        params["message"] = message
+    return f"/books?{urlencode(params)}" if params else "/books"
+
+
+def _book_sort_links(q: str, sort: str, direction: str) -> dict[str, dict[str, str | bool]]:
+    links: dict[str, dict[str, str | bool]] = {}
+    for column in ("isbn", "title", "author", "publisher", "assets", "last_crawled_at"):
+        active = sort == column
+        next_direction = "desc" if active and direction == "asc" else "asc"
+        links[column] = {
+            "href": _books_url(q=q, sort=column, direction=next_direction),
+            "indicator": "↑" if active and direction == "asc" else "↓" if active else "",
+            "active": active,
+        }
+    return links
+
+
+def _book_order_by(sort: str, direction: str):
+    asset_count = (
+        select(func.count(ImageAsset.id))
+        .where(ImageAsset.isbn == Book.isbn)
+        .correlate(Book)
+        .scalar_subquery()
+    )
+    sort_columns = {
+        "isbn": Book.isbn,
+        "title": func.lower(Book.title),
+        "author": func.lower(Book.author),
+        "publisher": func.lower(Book.publisher),
+        "assets": asset_count,
+        "last_crawled_at": Book.last_crawled_at,
+    }
+    primary = sort_columns[sort]
+    ordered_primary = primary.asc() if direction == "asc" else primary.desc()
+    return ordered_primary, Book.isbn.asc()
+
+
+def _delete_book_artifacts(book: Book) -> None:
+    for asset in book.assets:
+        path = _asset_absolute_path(asset.file_path)
+        if path.exists() and path.is_file():
+            path.unlink()
+
+    for folder in (settings.assets_dir / book.isbn, settings.snapshots_dir / book.isbn):
+        if folder.exists():
+            shutil.rmtree(folder, ignore_errors=True)
 
 
 @router.get("/healthz")
@@ -569,11 +647,20 @@ def download_job_assets(job_id: int):
 
 
 @router.get("/books", response_class=HTMLResponse)
-def books_list(request: Request, q: str = ""):
+def books_list(
+    request: Request,
+    q: str = "",
+    sort: str = _DEFAULT_BOOK_SORT,
+    dir: str = _DEFAULT_BOOK_DIRECTION,
+    message: str = "",
+):
+    normalized_q, normalized_sort, normalized_direction = _normalize_book_listing_params(q, sort, dir)
     with SessionLocal() as session:
-        query = select(Book).options(joinedload(Book.assets)).order_by(Book.last_crawled_at.desc())
-        if q.strip():
-            keyword = f"%{q.strip()}%"
+        query = select(Book).options(joinedload(Book.assets)).order_by(
+            *_book_order_by(normalized_sort, normalized_direction)
+        )
+        if normalized_q:
+            keyword = f"%{normalized_q}%"
             query = query.where(
                 or_(
                     Book.title.ilike(keyword),
@@ -586,15 +673,36 @@ def books_list(request: Request, q: str = ""):
         return templates.TemplateResponse(
             request,
             "books/list.html",
-            {"books": books, "query": q},
+            {
+                "books": books,
+                "query": normalized_q,
+                "sort": normalized_sort,
+                "direction": normalized_direction,
+                "sort_links": _book_sort_links(normalized_q, normalized_sort, normalized_direction),
+                "message": message,
+            },
         )
 
 
 @router.post("/books/download")
-def download_selected_books(isbns: list[str] = Form(default=[])):
+def download_selected_books(
+    isbns: list[str] = Form(default=[]),
+    q: str = Form(default=""),
+    sort: str = Form(default=_DEFAULT_BOOK_SORT),
+    dir: str = Form(default=_DEFAULT_BOOK_DIRECTION),
+):
     normalized = [isbn.strip() for isbn in isbns if isbn.strip()]
+    normalized_q, normalized_sort, normalized_direction = _normalize_book_listing_params(q, sort, dir)
     if not normalized:
-        return RedirectResponse(url="/books", status_code=303)
+        return RedirectResponse(
+            url=_books_url(
+                q=normalized_q,
+                sort=normalized_sort,
+                direction=normalized_direction,
+                message="선택한 도서가 없습니다.",
+            ),
+            status_code=303,
+        )
 
     with SessionLocal() as session:
         books = (
@@ -604,6 +712,60 @@ def download_selected_books(isbns: list[str] = Form(default=[])):
             .all()
         )
         return _zip_response(_book_archive_members(books), "selected-books-assets.zip")
+
+
+@router.post("/books/delete")
+def delete_selected_books(
+    isbns: list[str] = Form(default=[]),
+    q: str = Form(default=""),
+    sort: str = Form(default=_DEFAULT_BOOK_SORT),
+    dir: str = Form(default=_DEFAULT_BOOK_DIRECTION),
+):
+    normalized = [isbn.strip() for isbn in isbns if isbn.strip()]
+    normalized_q, normalized_sort, normalized_direction = _normalize_book_listing_params(q, sort, dir)
+    if not normalized:
+        return RedirectResponse(
+            url=_books_url(
+                q=normalized_q,
+                sort=normalized_sort,
+                direction=normalized_direction,
+                message="선택한 도서가 없습니다.",
+            ),
+            status_code=303,
+        )
+
+    with SessionLocal() as session:
+        books = (
+            session.execute(select(Book).where(Book.isbn.in_(normalized)).options(joinedload(Book.assets)))
+            .unique()
+            .scalars()
+            .all()
+        )
+        if not books:
+            return RedirectResponse(
+                url=_books_url(
+                    q=normalized_q,
+                    sort=normalized_sort,
+                    direction=normalized_direction,
+                    message="삭제할 도서를 찾지 못했습니다.",
+                ),
+                status_code=303,
+            )
+
+        for book in books:
+            _delete_book_artifacts(book)
+            session.delete(book)
+        session.commit()
+
+    return RedirectResponse(
+        url=_books_url(
+            q=normalized_q,
+            sort=normalized_sort,
+            direction=normalized_direction,
+            message=f"{len(books)}권의 도서 데이터를 삭제했습니다.",
+        ),
+        status_code=303,
+    )
 
 
 @router.get("/books/{isbn}", response_class=HTMLResponse)
@@ -707,8 +869,6 @@ def settings_healthcheck(request: Request):
                 )
             },
         )
-    from app.infrastructure.storage.filesystem import FilesystemStorage
-
     storage = FilesystemStorage(settings)
     try:
         with Yes24CrawlerAdapter(settings, storage, username, password) as adapter:

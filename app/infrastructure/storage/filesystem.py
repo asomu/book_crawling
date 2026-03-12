@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -8,14 +9,29 @@ from typing import Optional
 from app.config.settings import AppSettings
 
 
+_ASSET_FILENAME_MAX_LENGTH = 140
+
+
 class FilesystemStorage:
     def __init__(self, settings: AppSettings) -> None:
         self.settings = settings
 
-    def asset_path(self, isbn: str, variant: str, suffix: str = ".jpg") -> Path:
+    def asset_path(self, isbn: str, title: str, variant: str, suffix: str = ".jpg") -> Path:
         folder = self.settings.assets_dir / isbn
         folder.mkdir(parents=True, exist_ok=True)
-        return folder / f"{variant}{suffix}"
+        return folder / self.asset_filename(isbn, title, variant, suffix)
+
+    def asset_filename(self, isbn: str, title: str, variant: str, suffix: str = ".jpg") -> str:
+        asset_suffix = f"_{variant}{suffix}"
+        title_prefix = self._asset_title_prefix(isbn, title, asset_suffix)
+        return f"{title_prefix}{asset_suffix}"
+
+    def asset_download_name(self, isbn: str, title: str, file_path: str, variant: str) -> str:
+        existing_name = Path(file_path).name or f"{variant}.jpg"
+        if existing_name != f"{variant}.jpg":
+            return existing_name
+        title_prefix = self._asset_title_prefix(isbn, title, f"_{existing_name}")
+        return f"{title_prefix}_{existing_name}"
 
     def snapshot_path(self, isbn: str, kind: str, content: str) -> Path:
         stamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
@@ -40,3 +56,12 @@ class FilesystemStorage:
             return path if path.exists() else None
         candidate = self.settings.runtime_root / file_path
         return candidate if candidate.exists() else None
+
+    def _asset_title_prefix(self, isbn: str, title: str, suffix: str) -> str:
+        cleaned = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", title.strip())
+        cleaned = re.sub(r"\s+", " ", cleaned).rstrip(". ")
+        if not cleaned:
+            cleaned = isbn
+        available = max(1, _ASSET_FILENAME_MAX_LENGTH - len(suffix))
+        truncated = cleaned[:available].rstrip(". ")
+        return truncated or isbn

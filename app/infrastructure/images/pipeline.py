@@ -19,7 +19,7 @@ class ImagePipeline:
         self.settings = settings
         self.storage = storage
 
-    def generate_assets(self, isbn: str, cover_bytes: bytes, detail_bytes: bytes) -> list[StoredAsset]:
+    def generate_assets(self, isbn: str, title: str, cover_bytes: bytes, detail_bytes: bytes) -> list[StoredAsset]:
         try:
             cover = Image.open(BytesIO(cover_bytes)).convert("RGB")
             detail = Image.open(BytesIO(detail_bytes)).convert("RGB")
@@ -27,16 +27,16 @@ class ImagePipeline:
             raise ImageTransformFailedError(f"Could not open downloaded images: {exc}") from exc
 
         assets = [
-            self._save_image(isbn, AssetKind.COVER, cover),
-            self._save_image(isbn, AssetKind.Y1000, self._create_framed_variant(cover, 900)),
-            self._save_image(isbn, AssetKind.COUPANG, self._create_framed_variant(cover, 810, "쿠팡_아이콘.png")),
-            self._save_image(isbn, AssetKind.NAVER, self._create_framed_variant(cover, 810, "네이버_아이콘.png")),
-            self._save_image(isbn, AssetKind.DETAIL, self._resize_detail(detail)),
+            self._save_image(isbn, title, AssetKind.COVER, cover),
+            self._save_image(isbn, title, AssetKind.Y1000, self._create_framed_variant(cover, 900)),
+            self._save_image(isbn, title, AssetKind.COUPANG, self._create_framed_variant(cover, 810, "쿠팡_아이콘.png")),
+            self._save_image(isbn, title, AssetKind.NAVER, self._create_framed_variant(cover, 810, "네이버_아이콘.png")),
+            self._save_image(isbn, title, AssetKind.DETAIL, self._resize_detail(detail)),
         ]
         return assets
 
-    def _save_image(self, isbn: str, kind: AssetKind, image: Image.Image) -> StoredAsset:
-        path = self.storage.asset_path(isbn, kind.value)
+    def _save_image(self, isbn: str, title: str, kind: AssetKind, image: Image.Image) -> StoredAsset:
+        path = self.storage.asset_path(isbn, title, kind.value)
         try:
             image.save(path, format="JPEG", quality=95)
         except Exception as exc:

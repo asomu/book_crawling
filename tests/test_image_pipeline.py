@@ -30,6 +30,7 @@ def test_image_pipeline_generates_expected_assets(tmp_path: Path):
 
     assets = pipeline.generate_assets(
         "9791130671017",
+        "테스트 북",
         _image_bytes((600, 900), (20, 50, 90)),
         _image_bytes((900, 1300), (90, 40, 20)),
     )
@@ -46,6 +47,7 @@ def test_image_pipeline_generates_expected_assets(tmp_path: Path):
     for asset in assets:
         path = tmp_path / asset.file_path
         assert path.exists()
+        assert path.name.startswith("테스트 북_")
         with Image.open(path) as generated:
             assert generated.size == expected_sizes[asset.kind.value]
 

@@ -6,11 +6,17 @@
   <h2 class="panel-title">도서 데이터</h2>
   <form method="get" action="/books" class="btn-row mb-4">
     <input class="input" style="max-width:420px" name="q" value="{{ query }}" placeholder="제목, ISBN, 출판사, 저자 검색">
+    <input type="hidden" name="sort" value="{{ sort }}">
+    <input type="hidden" name="dir" value="{{ direction }}">
     <button class="btn-main" type="submit">검색</button>
   </form>
   <form method="post" action="/books/download">
+    <input type="hidden" name="q" value="{{ query }}">
+    <input type="hidden" name="sort" value="{{ sort }}">
+    <input type="hidden" name="dir" value="{{ direction }}">
     <div class="btn-row mb-4">
       <button class="btn-main" type="submit">선택 도서 ZIP 다운로드 (이미지 + CSV)</button>
+      <button class="btn-danger" type="submit" formaction="/books/delete" onclick="return confirm('선택한 도서를 삭제할까요? 연결된 이미지와 스냅샷도 함께 삭제됩니다.')">선택 도서 삭제</button>
       <button class="btn-ghost" type="button" onclick="document.querySelectorAll('input[name=&quot;isbns&quot;]').forEach(el => el.checked = true)">전체 선택</button>
       <button class="btn-ghost" type="button" onclick="document.querySelectorAll('input[name=&quot;isbns&quot;]').forEach(el => el.checked = false)">선택 해제</button>
     </div>
@@ -19,12 +25,12 @@
         <thead>
           <tr>
             <th class="table-check">Select</th>
-            <th>ISBN</th>
-            <th>Title</th>
-            <th>Author</th>
-            <th>Publisher</th>
-            <th>Assets</th>
-            <th>Last Crawled</th>
+            <th><a class="table-sort-link {% if sort_links['isbn']['active'] %}active{% endif %}" href="{{ sort_links['isbn']['href'] }}">ISBN <span class="sort-indicator">{{ sort_links['isbn']['indicator'] }}</span></a></th>
+            <th><a class="table-sort-link {% if sort_links['title']['active'] %}active{% endif %}" href="{{ sort_links['title']['href'] }}">Title <span class="sort-indicator">{{ sort_links['title']['indicator'] }}</span></a></th>
+            <th><a class="table-sort-link {% if sort_links['author']['active'] %}active{% endif %}" href="{{ sort_links['author']['href'] }}">Author <span class="sort-indicator">{{ sort_links['author']['indicator'] }}</span></a></th>
+            <th><a class="table-sort-link {% if sort_links['publisher']['active'] %}active{% endif %}" href="{{ sort_links['publisher']['href'] }}">Publisher <span class="sort-indicator">{{ sort_links['publisher']['indicator'] }}</span></a></th>
+            <th><a class="table-sort-link {% if sort_links['assets']['active'] %}active{% endif %}" href="{{ sort_links['assets']['href'] }}">Assets <span class="sort-indicator">{{ sort_links['assets']['indicator'] }}</span></a></th>
+            <th><a class="table-sort-link {% if sort_links['last_crawled_at']['active'] %}active{% endif %}" href="{{ sort_links['last_crawled_at']['href'] }}">Last Crawled <span class="sort-indicator">{{ sort_links['last_crawled_at']['indicator'] }}</span></a></th>
             <th class="table-action">Detail</th>
           </tr>
         </thead>
@@ -32,9 +38,7 @@
           {% for book in books %}
           <tr>
             <td class="table-check">
-              {% if book.assets %}
               <input type="checkbox" name="isbns" value="{{ book.isbn }}">
-              {% endif %}
             </td>
             <td>{{ book.isbn }}</td>
             <td>{{ book.title }}</td>

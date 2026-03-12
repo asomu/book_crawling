@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+from datetime import datetime, timedelta
 from io import BytesIO
 from pathlib import Path
 from urllib.parse import unquote_plus
@@ -5,7 +8,7 @@ from zipfile import ZipFile
 
 from fastapi.testclient import TestClient
 from PIL import Image
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 
 from app.config.settings import get_settings
 from app.domain.enums import Site
@@ -13,6 +16,65 @@ from app.infrastructure.db.models import Book, ImageAsset, SiteCredential
 from app.infrastructure.db.session import SessionLocal
 
 from app.main import app
+
+
+def _upsert_book(
+    *,
+    isbn: str,
+    title: str,
+    author: str,
+    publisher: str,
+    last_crawled_at: datetime | None = None,
+    asset_variants: tuple[str, ...] = (),
+) -> Path:
+    settings = get_settings()
+    asset_dir = settings.assets_dir / isbn
+    asset_dir.mkdir(parents=True, exist_ok=True)
+
+    with SessionLocal() as session:
+        session.execute(delete(ImageAsset).where(ImageAsset.isbn == isbn))
+        book = session.get(Book, isbn)
+        if not book:
+            book = Book(
+                isbn=isbn,
+                site="yes24",
+                title=title,
+                author=author,
+                publisher=publisher,
+                description="",
+                category="테스트",
+                price_original="10000",
+                price_sale="9000",
+                published_date="2024년 01월 01일",
+                page_count="100쪽",
+                book_size="120*180*10mm",
+                product_url="https://example.com",
+            )
+            session.add(book)
+        else:
+            book.title = title
+            book.author = author
+            book.publisher = publisher
+        if last_crawled_at is not None:
+            book.last_crawled_at = last_crawled_at
+
+        for index, variant in enumerate(asset_variants):
+            asset_path = asset_dir / f"{variant}.jpg"
+            image = Image.new("RGB", (120 + index, 180 + index), (40 + index, 70, 100))
+            image.save(asset_path, format="JPEG")
+            session.add(
+                ImageAsset(
+                    isbn=isbn,
+                    variant=variant,
+                    file_path=str(asset_path.relative_to(settings.user_data_dir)),
+                    width=120 + index,
+                    height=180 + index,
+                )
+            )
+
+        session.commit()
+
+    return asset_dir
 
 
 def test_create_job_renders_detail_page():
@@ -88,7 +150,7 @@ def test_download_single_book_assets_returns_zip():
     with ZipFile(BytesIO(response.content)) as archive:
         names = sorted(archive.namelist())
         assert "books.csv" in names
-        assert f"{title}/cover.jpg" in names
+        assert f"{title}/{title}_cover.jpg" in names
         csv_text = archive.read("books.csv").decode("utf-8-sig")
         assert "isbn,site,title,author,publisher" in csv_text
         assert isbn in csv_text
@@ -146,7 +208,7 @@ def test_download_selected_books_returns_zip():
     with ZipFile(BytesIO(response.content)) as archive:
         names = sorted(archive.namelist())
         assert "books.csv" in names
-        assert f"{title}/cover.jpg" in names
+        assert f"{title}/{title}_cover.jpg" in names
         csv_text = archive.read("books.csv").decode("utf-8-sig")
         assert isbn in csv_text
         assert title in csv_text
@@ -204,8 +266,8 @@ def test_download_selected_books_sanitizes_duplicate_title_folders():
 
     with ZipFile(BytesIO(response.content)) as archive:
         names = sorted(archive.namelist())
-        assert "중복_제목_ 테스트/cover.jpg" in names
-        assert f"중복_제목_ 테스트 ({second_isbn})/detail.jpg" in names
+        assert "중복_제목_ 테스트/중복_제목_ 테스트_cover.jpg" in names
+        assert f"중복_제목_ 테스트 ({second_isbn})/중복_제목_ 테스트_detail.jpg" in names
 
 
 def test_download_selected_books_keeps_duplicate_long_titles_unique():
@@ -260,7 +322,7 @@ def test_download_selected_books_keeps_duplicate_long_titles_unique():
 
     with ZipFile(BytesIO(response.content)) as archive:
         names = sorted(archive.namelist())
-        cover_names = [name for name in names if name.endswith("/cover.jpg")]
+        cover_names = [name for name in names if name.endswith("_cover.jpg")]
         assert len(cover_names) == 2
         assert len({name.split("/")[0] for name in cover_names}) == 2
         assert any(first_isbn in name or second_isbn in name for name in cover_names)
@@ -346,3 +408,77 @@ def test_download_logs_returns_zip():
         assert response.status_code == 200
         assert response.headers["content-type"] == "application/zip"
         assert response.content[:2] == b"PK"
+
+
+def test_books_list_supports_sorting_and_toggle_links():
+    older = datetime.utcnow() - timedelta(days=2)
+    newer = datetime.utcnow() - timedelta(days=1)
+    first_isbn = "9999990000101"
+    second_isbn = "9999990000102"
+    _upsert_book(
+        isbn=first_isbn,
+        title="Alpha Sort Route",
+        author="Writer B",
+        publisher="Publisher Z",
+        last_crawled_at=older,
+        asset_variants=("cover", "detail"),
+    )
+    _upsert_book(
+        isbn=second_isbn,
+        title="Beta Sort Route",
+        author="Writer A",
+        publisher="Publisher A",
+        last_crawled_at=newer,
+        asset_variants=("cover",),
+    )
+
+    with TestClient(app, raise_server_exceptions=False) as client:
+        ascending = client.get("/books?q=Sort+Route&sort=title&dir=asc")
+        assert ascending.status_code == 200
+        assert ascending.text.index("Alpha Sort Route") < ascending.text.index("Beta Sort Route")
+        assert 'class="table-sort-link active" href="/books?q=Sort+Route&amp;sort=title"' in ascending.text
+
+        descending = client.get("/books?q=Sort+Route&sort=assets&dir=desc")
+        assert descending.status_code == 200
+        assert descending.text.index(first_isbn) < descending.text.index(second_isbn)
+        assert "sort=assets&amp;dir=asc" in descending.text
+
+
+def test_delete_selected_books_removes_records_and_files():
+    settings = get_settings()
+    isbn = "9999990000103"
+    asset_dir = _upsert_book(
+        isbn=isbn,
+        title="Delete Route Test",
+        author="Delete Writer",
+        publisher="Delete Publisher",
+        last_crawled_at=datetime.utcnow(),
+        asset_variants=("cover",),
+    )
+    snapshot_dir = settings.snapshots_dir / isbn
+    snapshot_dir.mkdir(parents=True, exist_ok=True)
+    snapshot_file = snapshot_dir / "snapshot.html"
+    snapshot_file.write_text("<html>snapshot</html>", encoding="utf-8")
+    asset_path = asset_dir / "cover.jpg"
+
+    with TestClient(app, raise_server_exceptions=False) as client:
+        response = client.post(
+            "/books/delete",
+            data={"isbns": [isbn], "q": "Delete Route", "sort": "title", "dir": "asc"},
+            follow_redirects=False,
+        )
+
+    assert response.status_code == 303
+    assert "Delete+Route" in response.headers["location"]
+    assert "sort=title" in response.headers["location"]
+    assert "dir=asc" in response.headers["location"]
+    assert "1%EA%B6%8C%EC%9D%98+%EB%8F%84%EC%84%9C+%EB%8D%B0%EC%9D%B4%ED%84%B0" in response.headers["location"]
+
+    with SessionLocal() as session:
+        assert session.get(Book, isbn) is None
+        assert session.execute(select(ImageAsset).where(ImageAsset.isbn == isbn)).scalars().first() is None
+
+    assert not asset_path.exists()
+    assert not snapshot_file.exists()
+    assert not asset_dir.exists()
+    assert not snapshot_dir.exists()

@@ -228,7 +228,8 @@ body {
 
 .btn-main,
 .btn-subtle,
-.btn-ghost {
+.btn-ghost,
+.btn-danger {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -258,9 +259,16 @@ body {
   color: var(--ink);
 }
 
+.btn-danger {
+  background: rgba(189, 58, 36, 0.12);
+  border-color: rgba(189, 58, 36, 0.2);
+  color: #8e2514;
+}
+
 .btn-main:hover,
 .btn-subtle:hover,
-.btn-ghost:hover {
+.btn-ghost:hover,
+.btn-danger:hover {
   transform: translateY(-2px);
 }
 
@@ -289,6 +297,26 @@ body {
   letter-spacing: 0.18em;
   color: var(--ink-soft);
   background: rgba(255, 255, 255, 0.45);
+}
+
+.table-sort-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: inherit;
+  text-decoration: none;
+  transition: color 160ms ease;
+}
+
+.table-sort-link:hover,
+.table-sort-link.active {
+  color: var(--accent);
+}
+
+.sort-indicator {
+  display: inline-flex;
+  min-width: 0.75rem;
+  justify-content: center;
 }
 
 .badge {
